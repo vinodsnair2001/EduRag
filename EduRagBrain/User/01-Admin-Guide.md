@@ -71,11 +71,14 @@ Chapters appear in order on the student selection screen.
 
 ### Upload a PDF
 
-1. Go to the Class detail page → expand the Subject
-2. Click **Upload PDF** (or navigate to `/admin/classes/:id/subjects/:sid/upload`)
-3. Drag-and-drop your PDF onto the upload zone, or click to browse
-4. If the PDF belongs to a specific chapter, select the chapter from the dropdown
-5. Click **Upload**
+1. Navigate to **Materials** in the sidebar (or `/admin/materials`)
+2. Select a **Class** from the first dropdown
+3. Select a **Subject** from the second dropdown
+4. Optionally select a **Chapter** from the third dropdown — this tags every extracted text chunk with that chapter, enabling chapter-scoped student sessions
+5. Drag-and-drop your PDF onto the upload zone, or click to browse
+6. The upload starts immediately; vectorization begins in the background
+
+> **Chapter vs. Subject-level upload:** If you do NOT select a chapter, the PDF's chunks are stored as *subject-level* (ChapterId = NULL). Students in a chapter-scoped session will NOT see these chunks — only chapter-tagged chunks are returned. Subject-level uploads are useful for general reference material shared across all chapters.
 
 **Constraints:**
 - File type: **PDF only**
@@ -141,10 +144,11 @@ Same as above, but set role to **Admin**. Admins can manage all classes and all 
 
 ## Tips
 
-- Upload PDFs per chapter for best answer accuracy — narrower scope means better search results
+- Upload PDFs **tagged to a chapter** for best answer accuracy — narrower scope means better search results and less irrelevant context
+- Always select the chapter when uploading chapter-specific PDFs; subject-level PDFs are excluded from chapter-scoped student sessions
 - PDFs with clear headings and structured text extract better than scanned images
-- A student's questions are always scoped to the class+subject of their chat session; you cannot mix materials across subjects in one chat
-- Check the **Materials** page regularly for any **Failed** uploads
+- A student's RAG results are scoped to their selected Class + Subject + Chapters — you cannot mix across subjects in one session
+- Check the **Materials** page regularly for any **Failed** uploads; the row shows "Chapter assigned" or "Subject-level" for quick auditing
 
 ---
 

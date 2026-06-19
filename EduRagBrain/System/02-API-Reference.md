@@ -195,15 +195,21 @@ Same shape as admin classes endpoint. Used for class selection screen.
 
 ### POST `/chat/sessions`  `[Student]`
 
-Start a new chat session for a class+subject.
+Start a new chat session scoped to a class, subject, and one or more chapters.
 
 ```json
 // Request
-{ "classId": 1, "subjectId": 10 }
+{
+  "classId":    1,
+  "subjectId":  10,
+  "chapterIds": [3, 7]   // empty array = no chapter filter (all subject chunks)
+}
 
 // Response 201
 { "sessionId": "3fa85f64-..." }
 ```
+
+`chapterIds` is stored on the session as a JSON array. Every RAG query within the session filters `MaterialChunks` by `ChapterId IN (chapterIds)`. An empty array skips the chapter filter.
 
 ### GET `/chat/sessions/{sessionId}/messages`  `[Student]`
 

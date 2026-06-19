@@ -62,9 +62,20 @@ public static class ServiceRegistration
         services.AddScoped<IChatQueries,     ChatQueries>();
         services.AddScoped<IUserQueries,     UserQueries>();
 
-        // AI
-        services.AddHttpClient<IAIService, OllamaAIService>(c =>
-            c.BaseAddress = new Uri(config["Ollama:BaseUrl"] ?? "http://localhost:11434"));
+        // AI provider — selected by AI:Provider in appsettings.json ("Ollama" or "MistralAI")
+        var aiProvider = config["AI:Provider"] ?? "Ollama";
+        if (aiProvider.Equals("MistralAI", StringComparison.OrdinalIgnoreCase))
+        {
+            services.AddHttpClient<IAIService, MistralAIService>(c =>
+                c.BaseAddress = new Uri(
+                    config["AI:MistralAI:BaseUrl"] ?? "https://api.mistral.ai"));
+        }
+        else
+        {
+            services.AddHttpClient<IAIService, OllamaAIService>(c =>
+                c.BaseAddress = new Uri(
+                    config["Ollama:BaseUrl"] ?? "http://localhost:11434"));
+        }
         services.AddScoped<IVectorSearchService, VectorSearchService>();
         services.AddScoped<PdfProcessingService>();
         services.AddScoped<VectorizationProcessor>();

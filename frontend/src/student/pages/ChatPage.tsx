@@ -26,8 +26,12 @@ export default function ChatPage() {
   const navigate  = useNavigate()
   const { token } = useAuth()
 
-  const className   = (location.state as { className?: string; subjectName?: string })?.className   ?? `Class ${classId}`
-  const subjectName = (location.state as { className?: string; subjectName?: string })?.subjectName ?? 'Subject'
+  type LocationState = { className?: string; subjectName?: string; chapterIds?: number[]; chapterTitles?: string[] }
+  const state         = (location.state as LocationState) ?? {}
+  const className     = state.className   ?? `Class ${classId}`
+  const subjectName   = state.subjectName ?? 'Subject'
+  const chapterIds    = state.chapterIds  ?? []
+  const chapterTitles = state.chapterTitles ?? []
 
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [messages, setMessages]   = useState<Message[]>([])
@@ -36,9 +40,10 @@ export default function ChatPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    api.post('/chat/sessions', { classId: Number(classId), subjectId: Number(subjectId) })
+    api.post('/chat/sessions', { classId: Number(classId), subjectId: Number(subjectId), chapterIds })
       .then(r => setSessionId(r.data.sessionId))
       .catch(() => toast.error('Failed to start chat session.'))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [classId, subjectId])
 
   const { data: history, isLoading: historyLoading } = useQuery<ChatMessageDto[]>({
@@ -159,7 +164,14 @@ export default function ChatPage() {
           <h1 className="font-display font-extrabold text-gray-900 leading-tight truncate text-base sm:text-lg">
             {subjectName}
           </h1>
-          <p className="text-xs text-brand-500 font-display font-semibold leading-none">{className} · AI Tutor</p>
+          <p className="text-xs text-brand-500 font-display font-semibold leading-none">
+            {className} · AI Tutor
+            {chapterTitles.length > 0 && (
+              <span className="text-purple-500">
+                {' · '}{chapterTitles.length === 1 ? chapterTitles[0] : `${chapterTitles.length} chapters`}
+              </span>
+            )}
+          </p>
         </div>
 
         <div className="shrink-0 flex items-center gap-1 bg-brand-50 border border-brand-200 rounded-full px-3 py-1">
@@ -191,7 +203,10 @@ export default function ChatPage() {
                 </h2>
                 <p className="text-gray-500 font-display mb-6 text-sm">
                   Ask me anything about{' '}
-                  <span className="text-brand-600 font-bold">{subjectName}</span>.
+                  <span className="text-brand-600 font-bold">{subjectName}</span>
+                  {chapterTitles.length > 0 && (
+                    <span> · <span className="text-purple-500 font-bold">{chapterTitles.join(', ')}</span></span>
+                  )}.
                   I'll answer from your study materials.
                 </p>
                 <div className="flex flex-wrap gap-2 justify-center">

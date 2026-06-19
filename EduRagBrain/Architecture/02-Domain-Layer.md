@@ -144,16 +144,19 @@ public class AppUser {
 
 ```csharp
 public class ChatSession {
-    public Guid      Id        { get; set; }
-    public Guid      UserId    { get; set; }    // FK → AppUser
-    public int       ClassId   { get; set; }
-    public int       SubjectId { get; set; }
-    public DateTime  StartedAt { get; set; }
-    public DateTime? EndedAt   { get; set; }
-    public AppUser   User      { get; set; }
+    public Guid      Id                 { get; set; }
+    public Guid      UserId             { get; set; }    // FK → AppUser
+    public int       ClassId            { get; set; }
+    public int       SubjectId          { get; set; }
+    public string?   SelectedChapterIds { get; set; }    // JSON int array "[1,2,3]"; null = no chapter filter
+    public DateTime  StartedAt          { get; set; }
+    public DateTime? EndedAt            { get; set; }
+    public AppUser   User               { get; set; }
     public ICollection<ChatMessage> Messages { get; set; }
 }
 ```
+
+`SelectedChapterIds` is set at session creation from the student's chapter selection. `VectorSearchService` deserializes it and appends `AND "ChapterId" = ANY(@chapterIds)` to the RAG query when non-empty.
 
 ### ChatMessage
 
