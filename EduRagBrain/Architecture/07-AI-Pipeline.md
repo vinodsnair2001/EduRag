@@ -1,10 +1,10 @@
 ---
-tags: [architecture, ai, rag, ollama, llama3, embeddings, pgvector]
+tags: [architecture, ai, rag, ollama, mistralai, llama3, embeddings, pgvector]
 created: 2026-06-18
-updated: 2026-06-18
+updated: 2026-06-19
 type: architecture
 status: stable
-aliases: [AI Pipeline, RAG, Ollama, Vectorization]
+aliases: [AI Pipeline, RAG, Ollama, MistralAI, Vectorization]
 ---
 
 # AI Pipeline
@@ -13,14 +13,28 @@ aliases: [AI Pipeline, RAG, Ollama, Vectorization]
 
 ## Key Principle
 
-**All AI runs locally via Ollama. Zero paid API calls. Zero token costs.**
+All AI is routed through the `IAIService` interface. The **active provider** is selected by a single config key — no code changes needed to switch.
 
-| Model | Purpose | Dimensions | Command |
-|-------|---------|-----------|---------|
-| `nomic-embed-text` | Text → vector embedding | 768 | `ollama pull nomic-embed-text` |
-| `llama3.2` | Chat completion (8B params) | — | `ollama pull llama3.2` |
+| Setting | Value | Effect |
+|---------|-------|--------|
+| `AI:Provider` | `"Ollama"` (default) | Local Ollama — zero cost, fully offline |
+| `AI:Provider` | `"MistralAI"` | Mistral cloud API — requires API key |
 
-Ollama serves both at `http://localhost:11434`.
+---
+
+## Provider Comparison
+
+| Property | Ollama | MistralAI |
+|----------|--------|-----------|
+| Embed model | `nomic-embed-text` | `mistral-embed` |
+| Chat model | `llama3.2` | `mistral-large-latest` |
+| Embedding dims | **768** | **1024** |
+| Cost | Free (local GPU/CPU) | Paid (per token) |
+| Requires internet | No | Yes |
+| API key | No | `AI:MistralAI:ApiKey` |
+| Service class | `OllamaAIService` | `MistralAIService` |
+
+> **Embedding dimensions differ.** Switching providers requires running a SQL migration script and re-vectorizing all PDFs. See [[../Development/01-Setup-Guide#switching-ai-provider|Switching AI Provider]].
 
 ---
 
@@ -51,9 +65,9 @@ VectorizationProcessor
      ├── Per page: extract words → join text
      └── Sliding window: 500 words / 50 overlap
   4. For each chunk:
-     └── OllamaAIService.GetEmbeddingAsync(chunk.Text)
-         → POST http://localhost:11434/api/embeddings
-         → returns float[768]
+     └── IAIService.GetEmbeddingAsync(chunk.Text)
+         ├── Ollama:    POST localhost:11434/api/embeddings  → float[768]
+         └── MistralAI: POST api.mistral.ai/v1/embeddings   → float[1024]
   5. Build MaterialChunk entities (with Embedding)
   6. IMaterialChunkRepository.BulkInsertAsync(chunks)
      → INSERT INTO "MaterialChunks" (... "Embedding") VALUES (... @vector::vector)
@@ -70,24 +84,49 @@ Student types question
 ChatUseCase
   1. Verify session ownership
   2. Save user ChatMessage (EF Core)
-  3. OllamaAIService.GetEmbeddingAsync(question) → float[768]
+  3. IAIService.GetEmbeddingAsync(question)
+     ├── Ollama:    → float[768]
+     └── MistralAI: → float[1024]
   4. VectorSearchService.SearchAsync(embedding, classId, subjectId, topK=5)
-     └── Dapper query:
+     └── Dapper query (dimension read from AI:EmbeddingDimensions config):
          SELECT Id, Content, PageNumber,
-                1 - (Embedding <=> @vector::vector) AS Score
+                1 - (Embedding <=> @vector::vector({dims})) AS Score
          FROM "MaterialChunks"
          WHERE "ClassId" = @c AND "SubjectId" = @s
-         ORDER BY Embedding <=> @vector::vector
+         ORDER BY Embedding <=> @vector::vector({dims})
          LIMIT 5
   5. Build system prompt (inject top-5 chunks as CONTEXT)
   6. ChatQueries.GetLastNMessages(sessionId, 10) → history
-  7. OllamaAIService.StreamChatAsync(prompt, history, question)
-     └── POST http://localhost:11434/api/chat  {stream: true}
+  7. IAIService.StreamChatAsync(prompt, history, question)
+     ├── Ollama:    POST localhost:11434/api/chat     {stream: true}
+     └── MistralAI: POST api.mistral.ai/v1/chat/completions {stream: true}
          → yields string tokens via IAsyncEnumerable<string>
   8. Per token: write "data: {token}\n\n" to HTTP response (SSE)
   9. Accumulate full response
  10. Save assistant ChatMessage + SourceChunkIds (JSON array of chunk GUIDs)
 ```
+
+---
+
+## Service Registration
+
+`ServiceRegistration.cs` selects the provider at startup:
+
+```csharp
+var aiProvider = config["AI:Provider"] ?? "Ollama";
+if (aiProvider.Equals("MistralAI", StringComparison.OrdinalIgnoreCase))
+{
+    services.AddHttpClient<IAIService, MistralAIService>(c =>
+        c.BaseAddress = new Uri(config["AI:MistralAI:BaseUrl"] ?? "https://api.mistral.ai"));
+}
+else
+{
+    services.AddHttpClient<IAIService, OllamaAIService>(c =>
+        c.BaseAddress = new Uri(config["Ollama:BaseUrl"] ?? "http://localhost:11434"));
+}
+```
+
+Both services implement the same `IAIService` interface — all upstream code (`VectorizationProcessor`, `ChatUseCase`) is unaffected.
 
 ---
 
@@ -101,30 +140,35 @@ public async Task<float[]> GetEmbeddingAsync(string text)
         new { model = "nomic-embed-text", prompt = text });
     response.EnsureSuccessStatusCode();
     var result = await response.Content.ReadFromJsonAsync<EmbedResponse>();
-    return result!.Embedding;
+    return result!.Embedding;  // float[768]
 }
 
-// POST /api/chat  (streaming)
-public async IAsyncEnumerable<string> StreamChatAsync(
-    string systemPrompt, IEnumerable<ChatMessageDto> history, string userMessage,
-    [EnumeratorCancellation] CancellationToken ct = default)
+// POST /api/chat  (streaming — Ollama NDJSON format)
+public async IAsyncEnumerable<string> StreamChatAsync(...)
 {
-    // build messages array: system + history + userMessage
-    var request = new HttpRequestMessage(HttpMethod.Post, "/api/chat") {
-        Content = JsonContent.Create(new { model = "llama3.2", messages, stream = true })
-    };
-    using var response = await _http.SendAsync(request,
-        HttpCompletionOption.ResponseHeadersRead, ct);
-    using var reader = new StreamReader(await response.Content.ReadAsStreamAsync(ct));
+    // Each line: {"message":{"content":"..."},"done":false}
+    // Last line: {"done":true}
+}
+```
 
-    while (!reader.EndOfStream && !ct.IsCancellationRequested)
-    {
-        var line = await reader.ReadLineAsync();
-        var chunk = JsonSerializer.Deserialize<ChatStreamChunk>(line);
-        if (chunk?.Message?.Content is not null)
-            yield return chunk.Message.Content;
-        if (chunk?.Done == true) break;
-    }
+## MistralAIService — Key Code
+
+```csharp
+// POST /v1/embeddings  (OpenAI-compatible)
+public async Task<float[]> GetEmbeddingAsync(string text)
+{
+    var response = await _http.PostAsJsonAsync("/v1/embeddings",
+        new { model = "mistral-embed", input = new[] { text } });
+    response.EnsureSuccessStatusCode();
+    var result = await response.Content.ReadFromJsonAsync<MistralEmbedResponse>();
+    return result!.Data[0].Embedding;  // float[1024]
+}
+
+// POST /v1/chat/completions  (OpenAI-compatible SSE)
+public async IAsyncEnumerable<string> StreamChatAsync(...)
+{
+    // Each SSE line: data: {"choices":[{"delta":{"content":"..."},"finish_reason":null}]}
+    // Final line:    data: [DONE]
 }
 ```
 
@@ -153,44 +197,6 @@ CONTEXT FROM STUDY MATERIAL:
 ... (up to 5 chunks)
 ```
 
-### Practice Question Generation
-
-Triggered when message contains: `"practice questions"`, `"quiz me"`, `"test me"`, `"create questions"`.
-
-```
-[appended to base prompt]
-Generate exactly 5 practice questions from the context above.
-Return STRICTLY as JSON:
-{
-  "questions": [{
-    "id": 1,
-    "question": "...",
-    "type": "short-answer" | "multiple-choice",
-    "options": ["A","B","C","D"],
-    "correct_answer": "...",
-    "explanation": "..."
-  }]
-}
-Difficulty: 2 easy, 2 medium, 1 hard.
-Do NOT reveal correct_answer or explanation in the visible response.
-```
-
-### Answer Verification
-
-```
-[appended to base prompt]
-Original question: "{question_text}"
-Correct answer:    "{correct_answer}"
-Student's answer:  "{student_answer}"
-
-Evaluate:
-1. State: CORRECT / PARTIALLY CORRECT / INCORRECT
-2. CORRECT → praise + reinforce concept
-3. PARTIALLY CORRECT → explain what was right / missing
-4. INCORRECT → gently correct with explanation from context
-5. End with encouragement for Class {grade} student
-```
-
 ---
 
 ## pgvector Index
@@ -207,6 +213,14 @@ CREATE INDEX idx_chunks_class_subject ON "MaterialChunks" ("ClassId", "SubjectId
 
 HNSW parameters: `m=16` (graph connectivity), `ef_construction=64` (build quality). Cosine distance operator `<=>` measures angle between vectors — suitable for normalized text embeddings.
 
+> **Note:** After switching providers and running the SQL migration script, rebuild the HNSW index:
+> ```sql
+> DROP INDEX IF EXISTS idx_chunks_embedding;
+> CREATE INDEX idx_chunks_embedding
+>     ON "MaterialChunks" USING hnsw ("Embedding" vector_cosine_ops)
+>     WITH (m = 16, ef_construction = 64);
+> ```
+
 ---
 
 ## Chunking Strategy
@@ -217,10 +231,14 @@ HNSW parameters: `m=16` (graph connectivity), `ef_construction=64` (build qualit
 | Overlap | 50 words | Preserves sentence context at chunk boundaries |
 | Granularity | Page-level then window | Preserves page number metadata |
 
+The same `PdfProcessingService` is used regardless of AI provider.
+
 ---
 
 ## Related Docs
 
 - [[04-Infrastructure-Layer]] — VectorizationWorker and PdfProcessingService detail
 - [[../System/01-Database-Schema]] — MaterialChunks table DDL
+- [[../System/04-Configuration]] — AI provider config keys
+- [[../Development/01-Setup-Guide]] — switching AI provider step-by-step
 - [[../System/06-Troubleshooting]] — Ollama connection errors, embedding dimension mismatches
