@@ -1,0 +1,20 @@
+## .NET
+**/bin/
+**/obj/
+**/.vs/
+**/appsettings.Development.json
+**/appsettings.Production.json
+
+## Node / Frontend
+**/node_modules/
+frontend/dist/
+frontend/.env.local
+
+## Storage (never commit uploaded files)
+storage/
+E:/EduRagFiles/
+
+## Misc
+*.user
+.DS_Store
+Thumbs.db

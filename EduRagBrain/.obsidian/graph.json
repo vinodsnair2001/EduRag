@@ -1,0 +1,58 @@
+{
+  "collapse-filter": false,
+  "search": "",
+  "showTags": true,
+  "showAttachments": false,
+  "hideUnresolved": false,
+  "showOrphans": true,
+  "collapse-color-groups": false,
+  "colorGroups": [
+    {
+      "query": "tag:#architecture",
+      "color": {
+        "a": 1,
+        "rgb": 7471104
+      }
+    },
+    {
+      "query": "tag:#system",
+      "color": {
+        "a": 1,
+        "rgb": 3907516
+      }
+    },
+    {
+      "query": "tag:#user-guide",
+      "color": {
+        "a": 1,
+        "rgb": 14780518
+      }
+    },
+    {
+      "query": "tag:#development",
+      "color": {
+        "a": 1,
+        "rgb": 16737792
+      }
+    },
+    {
+      "query": "tag:#skill",
+      "color": {
+        "a": 1,
+        "rgb": 8388863
+      }
+    }
+  ],
+  "collapse-display": false,
+  "showArrow": true,
+  "textFadeMultiplier": 0,
+  "nodeSizeMultiplier": 1,
+  "lineSizeMultiplier": 1,
+  "collapse-forces": false,
+  "centerStrength": 0.518713248970312,
+  "repelStrength": 10,
+  "linkStrength": 1,
+  "linkDistance": 250,
+  "scale": 0.36288736930121096,
+  "close": false
+}

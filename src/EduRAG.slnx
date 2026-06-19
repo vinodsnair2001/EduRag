@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="EduRAG.API/EduRAG.API.csproj" />
+  <Project Path="EduRAG.Application/EduRAG.Application.csproj" />
+  <Project Path="EduRAG.Domain/EduRAG.Domain.csproj" />
+  <Project Path="EduRAG.Infrastructure/EduRAG.Infrastructure.csproj" />
+</Solution>

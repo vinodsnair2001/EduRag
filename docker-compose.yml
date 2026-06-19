@@ -1,0 +1,35 @@
+# NOTE: For local development the project uses:
+#   - Local PostgreSQL at localhost:5433 (database: Edurag, user: postgres, pass: <your-db-password>)
+#   - Local Ollama Windows app at localhost:11434 (already running — no Docker needed)
+#   - PDF uploads stored at E:\EduRagFiles\EduRagPdfs
+#
+# This docker-compose is for containerised deployment only.
+# For local dev, just run: dotnet watch run + npm run dev
+
+services:
+
+  api:
+    build:
+      context: ./src
+      dockerfile: EduRAG.API/Dockerfile
+    ports:
+      - '5000:8080'
+    environment:
+      ConnectionStrings__Default: "Host=host.docker.internal;Port=5433;Database=Edurag;Username=postgres;Password=YOUR_DB_PASSWORD"
+      Ollama__BaseUrl: "http://host.docker.internal:11434"
+      Jwt__Secret: "REPLACE_WITH_ACTUAL_32_CHAR_PRODUCTION_SECRET!!"
+      Storage__BasePath: "/var/edurag/materials"
+      AllowedOrigins: "http://localhost:3000"
+    volumes:
+      - E:/EduRagFiles/EduRagPdfs:/var/edurag/materials
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - '3000:80'
+    depends_on:
+      - api

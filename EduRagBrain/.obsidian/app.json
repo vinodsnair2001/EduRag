@@ -1,0 +1,14 @@
+{
+  "useTab": false,
+  "tabSize": 2,
+  "indentUsingTabs": false,
+  "showLineNumber": true,
+  "spellcheck": false,
+  "defaultViewMode": "preview",
+  "strictLineBreaks": false,
+  "foldHeading": true,
+  "foldIndent": true,
+  "showFrontmatter": false,
+  "legacyEditor": false,
+  "livePreview": true
+}
