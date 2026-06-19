@@ -15,6 +15,47 @@ All changes to the EduRAG codebase and documentation are recorded here.
 
 ---
 
+## 2026-06-19 — MistralAI Provider Support (feature-ImplementationMisteralAI)
+
+**Type:** Feature
+**Branch:** `feature-ImplementationMisteralAI`
+**Affected:** Infrastructure, Configuration, Scripts, Docs
+
+### What changed
+
+Added MistralAI as an alternative AI provider alongside Ollama. The active provider is selected by a single config key (`AI:Provider`) — all embedding, vectorization, and chat functionality routes through the same `IAIService` interface.
+
+#### New files
+- `src/EduRAG.Infrastructure/Services/MistralAIService.cs` — implements `IAIService` using the MistralAI REST API (`mistral-embed` for embeddings, `mistral-large-latest` for streaming chat)
+- `scripts/migrate-to-mistralai.sql` — SQL script to change `Embedding` column from `vector(768)` → `vector(1024)`, clear old chunks, reset materials to Pending
+- `scripts/migrate-to-ollama.sql` — SQL script to revert from `vector(1024)` → `vector(768)`
+
+#### Modified files
+- `src/EduRAG.API/appsettings.json` — added `AI` config section (`Provider`, `EmbeddingDimensions`, `MistralAI.*`)
+- `src/EduRAG.Infrastructure/ServiceRegistration.cs` — conditional `IAIService` registration based on `AI:Provider`
+- `src/EduRAG.Infrastructure/Services/VectorSearchService.cs` — reads vector dimension from `AI:EmbeddingDimensions` config instead of hard-coding 768
+- `src/EduRAG.Infrastructure/Persistence/AppDbContextFactory.cs` — now reads connection string from `appsettings.json` instead of hard-coding credentials
+
+### Provider details
+
+| | Ollama (default) | MistralAI |
+|-|-----------------|-----------|
+| Config | `AI:Provider = "Ollama"` | `AI:Provider = "MistralAI"` |
+| Embed dims | 768 | 1024 |
+| API key | Not required | `AI:MistralAI:ApiKey` |
+| DB column | `vector(768)` | `vector(1024)` |
+
+### Migration note
+
+Switching providers requires running a SQL script (`scripts/migrate-to-*.sql`) to change the embedding column dimension and re-vectorizing all PDFs. Ollama config is unchanged — existing Ollama setups require no action.
+
+### Docs updated
+- `EduRagBrain/Architecture/07-AI-Pipeline.md` — updated with MistralAI data flow, service code, provider comparison table
+- `EduRagBrain/System/04-Configuration.md` — added `AI` section, switching guide, env-var examples
+- `EduRagBrain/Development/01-Setup-Guide.md` — added "Switching AI Provider" section with step-by-step instructions
+
+---
+
 ## 2026-06-18 — Initial Knowledge Base Creation
 
 **Type:** Docs
