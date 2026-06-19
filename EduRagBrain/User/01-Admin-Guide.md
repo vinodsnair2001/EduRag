@@ -1,7 +1,7 @@
 ---
 tags: [user-guide, admin, classes, upload, management]
 created: 2026-06-18
-updated: 2026-06-18
+updated: 2026-06-19
 type: user
 status: stable
 aliases: [Admin Guide, Admin Manual]
@@ -130,6 +130,20 @@ Share the email and password with the student. They should change their password
 ### Create Another Admin
 
 Same as above, but set role to **Admin**. Admins can manage all classes and all users.
+
+### Edit a Student's Subject Permissions
+
+Each student can only access the subjects the admin explicitly grants. After creating a student (or any time afterwards):
+
+1. Go to **Users** in the sidebar
+2. Click the **Edit** (pencil) icon next to the student
+3. The edit dialog shows a **Subject Access** section listing every subject in the student's assigned class
+4. Check the subjects the student is allowed to study; uncheck any they should not access
+5. Click **Save Changes** — the profile update and permissions update are sent together
+
+> If the student's class is changed, the subject list refreshes and all previous subject selections are cleared. Re-select the appropriate subjects for the new class before saving.
+
+> A student with no subjects checked will see an empty subject list on their study portal and will not be able to start a chat session.
 
 ### Deactivate a User
 

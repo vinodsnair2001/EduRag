@@ -13,8 +13,9 @@ public class AppDbContext : DbContext
     public DbSet<StudyMaterial>  StudyMaterials => Set<StudyMaterial>();
     public DbSet<MaterialChunk>  MaterialChunks => Set<MaterialChunk>();
     public DbSet<AppUser>        AppUsers       => Set<AppUser>();
-    public DbSet<ChatSession>    ChatSessions   => Set<ChatSession>();
-    public DbSet<ChatMessage>    ChatMessages   => Set<ChatMessage>();
+    public DbSet<ChatSession>         ChatSessions        => Set<ChatSession>();
+    public DbSet<ChatMessage>         ChatMessages        => Set<ChatMessage>();
+    public DbSet<StudentPermission>   StudentPermissions  => Set<StudentPermission>();
 
     protected override void OnModelCreating(ModelBuilder mb)
     {

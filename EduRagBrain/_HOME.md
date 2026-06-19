@@ -67,6 +67,15 @@ Architecture: Clean Architecture (DDD)   Auth: JWT (Admin / Student roles)
 | [[Development/01-Setup-Guide]] | Prerequisites, toolchain, local environment |
 | [[Development/02-Testing]] | Postman flows, integration test scenarios |
 
+### [[Backlog/BACKLOG|Backlog & Task Tracker]]
+> All planned, in-progress, and completed work items — features, bugs, refactors.
+
+| Doc | Summary |
+|-----|---------|
+| [[Backlog/BACKLOG]] | Feature tracker — F-xxx features, B-xxx bugs, R-xxx refactors |
+
+---
+
 ### [[Skills/edurag-claude-skill|Claude Skills]]
 > Instructions and rules Claude follows when working in this project.
 

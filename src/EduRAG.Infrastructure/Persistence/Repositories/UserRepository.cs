@@ -22,6 +22,22 @@ public class UserRepository : IUserRepository
     public async Task<AppUser?> GetByIdAsync(Guid id)
         => await _ctx.AppUsers.FindAsync(id);
 
+    public async Task UpdateAsync(AppUser user)
+    {
+        _ctx.AppUsers.Update(user);
+        await _ctx.SaveChangesAsync();
+    }
+
+    public async Task DeleteAsync(Guid id)
+    {
+        var user = await _ctx.AppUsers.FindAsync(id);
+        if (user is not null)
+        {
+            _ctx.AppUsers.Remove(user);
+            await _ctx.SaveChangesAsync();
+        }
+    }
+
     public async Task UpdateLastLoginAsync(Guid id)
     {
         var user = await _ctx.AppUsers.FindAsync(id);

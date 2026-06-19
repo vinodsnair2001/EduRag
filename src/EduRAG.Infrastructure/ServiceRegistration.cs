@@ -22,6 +22,7 @@ public static class ServiceRegistration
         services.AddScoped<ManageClassUseCase>();
         services.AddScoped<ManageSubjectUseCase>();
         services.AddScoped<ManageChapterUseCase>();
+        services.AddScoped<ManageStudentUseCase>();
         services.AddScoped<UploadMaterialUseCase>();
         services.AddScoped<ChatUseCase>();
         return services;
@@ -52,15 +53,17 @@ public static class ServiceRegistration
         services.AddScoped<IStudyMaterialRepository,  StudyMaterialRepository>();
         services.AddScoped<IMaterialChunkRepository,  MaterialChunkRepository>();
         services.AddScoped<IChatRepository,           ChatRepository>();
-        services.AddScoped<IUserRepository,           UserRepository>();
+        services.AddScoped<IUserRepository,                UserRepository>();
+        services.AddScoped<IStudentPermissionRepository,   StudentPermissionRepository>();
 
         // Queries (Dapper — reads)
-        services.AddScoped<IClassQueries,    ClassQueries>();
-        services.AddScoped<ISubjectQueries,  SubjectQueries>();
-        services.AddScoped<IChapterQueries,  ChapterQueries>();
-        services.AddScoped<IMaterialQueries, MaterialQueries>();
-        services.AddScoped<IChatQueries,     ChatQueries>();
-        services.AddScoped<IUserQueries,     UserQueries>();
+        services.AddScoped<IClassQueries,               ClassQueries>();
+        services.AddScoped<ISubjectQueries,             SubjectQueries>();
+        services.AddScoped<IChapterQueries,             ChapterQueries>();
+        services.AddScoped<IMaterialQueries,            MaterialQueries>();
+        services.AddScoped<IChatQueries,                ChatQueries>();
+        services.AddScoped<IUserQueries,                UserQueries>();
+        services.AddScoped<IStudentPermissionQueries,   StudentPermissionQueries>();
 
         // AI provider — selected by AI:Provider in appsettings.json ("Ollama" or "MistralAI")
         var aiProvider = config["AI:Provider"] ?? "Ollama";
