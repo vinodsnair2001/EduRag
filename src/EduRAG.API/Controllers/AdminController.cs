@@ -21,6 +21,7 @@ public class AdminController : ControllerBase
     private readonly IMaterialQueries            _materialQ;
     private readonly IUserQueries                _userQ;
     private readonly IStudentPermissionQueries   _permQ;
+    private readonly IFileStorageService         _fileStorage;
 
     public AdminController(
         ManageClassUseCase classes, ManageSubjectUseCase subjects,
@@ -28,7 +29,8 @@ public class AdminController : ControllerBase
         UploadMaterialUseCase upload,
         IClassQueries classQ, ISubjectQueries subjectQ,
         IChapterQueries chapterQ, IMaterialQueries materialQ,
-        IUserQueries userQ, IStudentPermissionQueries permQ)
+        IUserQueries userQ, IStudentPermissionQueries permQ,
+        IFileStorageService fileStorage)
     {
         _classes   = classes;   _subjects  = subjects;
         _chapters  = chapters;  _students  = students;
@@ -36,6 +38,7 @@ public class AdminController : ControllerBase
         _classQ    = classQ;    _subjectQ  = subjectQ;
         _chapterQ  = chapterQ;  _materialQ = materialQ;
         _userQ     = userQ;     _permQ     = permQ;
+        _fileStorage = fileStorage;
     }
 
     // ── Classes ────────────────────────────────────────────────────────────
@@ -114,6 +117,16 @@ public class AdminController : ControllerBase
     {
         var r = await _chapters.DeleteAsync(id);
         return r.IsSuccess ? NoContent() : NotFound(new { message = r.Error });
+    }
+
+    [HttpGet("chapters/{chapterId:int}/pdf")]
+    public async Task<IActionResult> GetChapterPdf(int chapterId)
+    {
+        var file = await _materialQ.GetFileByChapterIdAsync(chapterId);
+        if (file is null)
+            return NotFound(new { message = "No PDF uploaded for this chapter." });
+        var stream = _fileStorage.OpenRead(file.StoredFilePath);
+        return File(stream, "application/pdf", file.OriginalFileName);
     }
 
     // ── Materials ──────────────────────────────────────────────────────────

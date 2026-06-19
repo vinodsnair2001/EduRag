@@ -1,7 +1,7 @@
 ---
 tags: [architecture, frontend, react, typescript, shadcn, tailwind, sse]
 created: 2026-06-18
-updated: 2026-06-19
+updated: 2026-06-19 (2)
 type: architecture
 status: stable
 aliases: [Frontend Architecture, React, shadcn/ui]
@@ -199,7 +199,7 @@ const sendMessage = async (userText: string) => {
 | Component | Path | Description |
 |-----------|------|-------------|
 | `<LoginPage />` | auth/pages/LoginPage.tsx | Single page, tab for Admin vs Student |
-| `<ClassSubjectSelectPage />` | student/pages/ClassSubjectSelectPage.tsx | Two-step: permitted subject cards (from `GET /student/my-subjects`) → chapter checkboxes; shows assigned class badge |
+| `<ClassSubjectSelectPage />` | student/pages/ClassSubjectSelectPage.tsx | Two-step: permitted subject cards → chapter selection; each chapter row shows a violet FileText icon (right side) when `hasPdf: true` — clicking opens a full-height Dialog PDF viewer (blob URL + download); chapter toggle and PDF icon are sibling buttons in a wrapper div |
 | `<ChatPage />` | student/pages/ChatPage.tsx | SSE stream chat + practice mode |
 | `<ChatWindow />` | student/components/ChatWindow.tsx | Scrollable message list (markdown) |
 | `<ChatInput />` | student/components/ChatInput.tsx | Textarea + send button + "Quiz me" shortcut |
@@ -207,7 +207,7 @@ const sendMessage = async (userText: string) => {
 | `<ScoreAnimation />` | student/components/ScoreAnimation.tsx | Confetti / star burst on correct answer |
 | `<AdminDashboard />` | admin/pages/AdminDashboard.tsx | Stats cards: classes, subjects, materials |
 | `<ClassListPage />` | admin/pages/ClassListPage.tsx | Table + create button |
-| `<ClassDetailPage />` | admin/pages/ClassDetailPage.tsx | Subjects + chapters tree |
+| `<ClassDetailPage />` | admin/pages/ClassDetailPage.tsx | Subjects + chapters tree; chapter rows show blue FileText icon when a PDF exists — clicking opens a full-height Dialog PDF viewer (blob URL + download button) |
 | `<UploadMaterialPage />` | admin/pages/UploadMaterialPage.tsx | Dropzone + metadata form |
 | `<MaterialListPage />` | admin/pages/MaterialListPage.tsx | Table with status badges |
 | `<UserManagementPage />` | admin/pages/UserManagementPage.tsx | User list; student rows show edit (pencil) and deactivate/reactivate icons; create dialog routes students through `POST /admin/students` (class picker required) and admins through `POST /auth/register`; edit dialog includes a **Subject Access** section with per-subject checkboxes loaded from `GET /admin/classes/{classId}/subjects`, pre-populated from `GET /admin/students/{id}/permissions`, saved via `PUT /admin/students/{id}/permissions` |

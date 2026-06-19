@@ -1,7 +1,7 @@
 ---
 tags: [user-guide, admin, classes, upload, management]
 created: 2026-06-18
-updated: 2026-06-19
+updated: 2026-06-19 (2)
 type: user
 status: stable
 aliases: [Admin Guide, Admin Manual]
@@ -64,6 +64,17 @@ Subjects belong to one class. To move a subject to another class, delete and rec
 4. Click **Save**
 
 Chapters appear in order on the student selection screen.
+
+### Preview a Chapter's PDF
+
+Once a PDF has been uploaded and linked to a chapter, a blue **document icon** (FileText) appears on the right side of that chapter's row.
+
+1. Click the **FileText** icon to open the PDF viewer
+2. The PDF renders inline in a full-height dialog
+3. Click **Download** to save a local copy
+4. Click **✕** or press Escape to close
+
+> Chapters with no uploaded PDF show no icon. After uploading a new PDF for a chapter, refresh the page to see the icon appear.
 
 ---
 

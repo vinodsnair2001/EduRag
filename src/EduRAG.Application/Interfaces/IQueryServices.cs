@@ -30,6 +30,7 @@ public interface IMaterialQueries
 {
     Task<IEnumerable<MaterialDto>> GetAllAsync();
     Task<IEnumerable<MaterialDto>> GetBySubjectAsync(int subjectId);
+    Task<MaterialFileDto?>          GetFileByChapterIdAsync(int chapterId);
 }
 
 public interface IUserQueries

@@ -1,7 +1,7 @@
 ---
 tags: [system, api, endpoints, rest, http]
 created: 2026-06-18
-updated: 2026-06-19
+updated: 2026-06-19 (2)
 type: system
 status: stable
 aliases: [API Reference, Endpoints]
@@ -128,6 +128,19 @@ Returns chapters ordered by `OrderIndex`.
 ### PUT `/admin/chapters/{id}`  `[Admin]`
 
 ### DELETE `/admin/chapters/{id}`  `[Admin]`
+
+### GET `/admin/chapters/{chapterId}/pdf`  `[Admin]`
+
+Stream the PDF for the most recently uploaded study material of a chapter.
+
+**Response 200:** Binary PDF stream.
+
+```
+Content-Type: application/pdf
+Content-Disposition: attachment; filename="chapter-title.pdf"
+```
+
+**Errors:** 404 no PDF uploaded for this chapter
 
 ---
 
@@ -296,7 +309,15 @@ Returns subjects for the given class, filtered by the student's subject permissi
 
 ### GET `/student/subjects/{subjectId}/chapters`  `[Student]`
 
-Returns chapters for a subject, ordered by `OrderIndex`.
+Returns chapters for a subject, ordered by `OrderIndex`. Each `ChapterDto` includes `hasPdf: bool` — `true` when at least one study material has been uploaded for that chapter.
+
+### GET `/student/chapters/{chapterId}/pdf`  `[Student]`
+
+Stream the PDF for the most recently uploaded study material of a chapter. Used by the chapter selection page to let students preview the chapter PDF before selecting it for a session.
+
+**Response 200:** Binary PDF stream (`Content-Type: application/pdf`).
+
+**Errors:** 404 no PDF uploaded for this chapter
 
 ---
 

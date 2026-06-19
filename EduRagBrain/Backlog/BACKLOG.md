@@ -1,7 +1,7 @@
 ---
 tags: [backlog, features, bugfix, refactor, tracking]
 created: 2026-06-19
-updated: 2026-06-19
+updated: 2026-06-19 (3)
 type: backlog
 status: active
 aliases: [Backlog, Feature Tracker, Task Log]
@@ -32,6 +32,7 @@ Add new rows at the **top** of each section. Never delete rows — change status
 
 | # | Title | Status | Branch | Notes |
 |---|-------|--------|--------|-------|
+| F-006 | Display PDF for chapter | Done | `feature-Display-pdf-chapter` | Blue FileText icon appears on each chapter row that has an uploaded PDF; clicking opens a full-height Dialog viewer with download option |
 | F-005 | Chapter-based vectorisation & student chapter selection | Done | `feature-Vectorisation-based-on-class-subject-chapter` | RAG search scoped to Class+Subject+Chapters; student picks chapters before chat; admin selects chapter on upload |
 | F-004 | Edit & deactivate student accounts | Done | `feature-StudentClassSubjectPermission` | Admin can update student profile/class/password; DELETE soft-deactivates (IsActive=false), data preserved |
 | F-003 | Student class & subject permissions | Done | `feature-StudentClassSubjectPermission` | Admin assigns student to class + permitted subjects; student sees only their class and permitted subjects |
@@ -313,6 +314,52 @@ When a student is created by an admin:
 **API**
 - `EduRAG.API/Controllers/AdminController.cs` — 3 new student/permission endpoints
 - `EduRAG.API/Controllers/StudentController.cs` — replaced with `my-class`, `my-subjects`, chapters
+
+---
+
+## Feature F-006 Detail — Display PDF for Chapter
+
+**Branch:** `feature-Display-pdf-chapter`
+**Status:** Done (2026-06-19)
+
+### Requirement
+
+Admins reviewing chapters in the Class Detail page need a quick way to view the PDF that was uploaded for a chapter, without navigating away from the chapter list.
+
+On the right-hand side of each chapter row that has an uploaded PDF, a blue **FileText** icon is shown. Clicking it opens a full-height Dialog that renders the PDF inline via an `<iframe>` (blob URL). A **Download** button lets the admin save the file locally. Chapters with no uploaded PDF show no icon, keeping the UI clean.
+
+### Design Decisions
+
+- `ChapterDto` gains a `HasPdf bool` field computed by an `EXISTS` subquery in the Dapper query — no extra round-trip needed.
+- A new `GET /admin/chapters/{chapterId}/pdf` endpoint (Admin-auth) queries for the most recent `StudyMaterial` for that chapter, opens the file via `IFileStorageService.OpenRead`, and streams it as `application/pdf`.
+- The frontend fetches the PDF blob via the existing `api` axios instance (which adds the Bearer token automatically), creates a `URL.createObjectURL` blob URL, and injects it into an `<iframe>`. The blob URL is revoked on dialog close to avoid memory leaks.
+- A new `MaterialFileDto(Guid Id, string StoredFilePath, string OriginalFileName)` DTO carries only the file-serving fields, keeping `MaterialDto` unchanged.
+
+### New Endpoint
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| `GET` | `/api/admin/chapters/{chapterId}/pdf` | Admin | Stream the PDF for the most recent uploaded material of this chapter |
+
+### Files Changed
+
+**Application**
+- `EduRAG.Application/DTOs/ChapterDtos.cs` — `ChapterDto` gains `HasPdf bool`
+- `EduRAG.Application/DTOs/MaterialDtos.cs` — new `MaterialFileDto` record
+- `EduRAG.Application/Interfaces/IQueryServices.cs` — `IMaterialQueries` gains `GetFileByChapterIdAsync`
+
+**Infrastructure**
+- `EduRAG.Infrastructure/Persistence/Queries/ChapterQueries.cs` — SQL adds `EXISTS` subquery for `HasPdf`
+- `EduRAG.Infrastructure/Persistence/Queries/MaterialQueries.cs` — implements `GetFileByChapterIdAsync`
+
+**API**
+- `EduRAG.API/Controllers/AdminController.cs` — injects `IFileStorageService`; new `GET /admin/chapters/{chapterId}/pdf` action
+- `EduRAG.API/Controllers/StudentController.cs` — injects `IMaterialQueries` + `IFileStorageService`; new `GET /student/chapters/{chapterId}/pdf` action
+
+**Frontend**
+- `frontend/src/types/index.ts` — `ChapterDto` gains `hasPdf: boolean`
+- `frontend/src/admin/pages/ClassDetailPage.tsx` — PDF icon button on chapter rows; blob-URL PDF viewer Dialog
+- `frontend/src/student/pages/ClassSubjectSelectPage.tsx` — chapter card restructured (`div` wrapper + sibling buttons); violet FileText icon when `hasPdf`; blob-URL PDF viewer Dialog
 
 ---
 

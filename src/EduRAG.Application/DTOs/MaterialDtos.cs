@@ -14,3 +14,5 @@ public record MaterialDto(
     int ClassId,
     int SubjectId,
     int? ChapterId);
+
+public record MaterialFileDto(Guid Id, string StoredFilePath, string OriginalFileName);
