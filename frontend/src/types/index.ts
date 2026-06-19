@@ -52,6 +52,18 @@ export interface ChatMessageDto {
   sentAt: string
 }
 
+export interface StudentClassDto {
+  classId: number
+  className: string
+  grade: number
+}
+
+export interface StudentSubjectDto {
+  subjectId: number
+  subjectName: string
+  description: string
+}
+
 export interface UserDto {
   id: string
   email: string
@@ -60,6 +72,15 @@ export interface UserDto {
   isActive: boolean
   createdAt: string
   lastLoginAt?: string
+  classId?: number
+}
+
+export interface StudentPermissionDto {
+  id: string
+  studentId: string
+  subjectId: number
+  subjectName: string
+  grantedAt: string
 }
 
 export const STATUS_LABEL: Record<VectorizationStatus, string> = {

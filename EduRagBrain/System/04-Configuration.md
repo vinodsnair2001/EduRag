@@ -27,12 +27,22 @@ Docker is **not used** for local development. Both PostgreSQL and Ollama run as 
 
 ---
 
-## appsettings.json (actual values)
+## appsettings.json (template — no real secrets)
 
 ```json
 {
   "ConnectionStrings": {
-    "Default": "Host=localhost;Port=5433;Database=Edurag;Username=postgres;Password=Strong321#"
+    "Default": "Host=localhost;Port=5433;Database=Edurag;Username=postgres;Password=YOUR_DB_PASSWORD"
+  },
+  "AI": {
+    "Provider": "Ollama",
+    "EmbeddingDimensions": 768,
+    "MistralAI": {
+      "ApiKey": "YOUR_MISTRAL_API_KEY",
+      "EmbedModel": "mistral-embed",
+      "ChatModel": "mistral-large-latest",
+      "BaseUrl": "https://api.mistral.ai"
+    }
   },
   "Jwt": {
     "Secret":         "REPLACE_WITH_MINIMUM_32_CHARACTER_RANDOM_KEY_HERE_!!",
@@ -60,12 +70,12 @@ Docker is **not used** for local development. Both PostgreSQL and Ollama run as 
 }
 ```
 
-## appsettings.Development.json (overrides for dev)
+## appsettings.Development.json (overrides for dev — git-ignored)
 
 ```json
 {
   "ConnectionStrings": {
-    "Default": "Host=localhost;Port=5433;Database=Edurag;Username=postgres;Password=Strong321#"
+    "Default": "Host=localhost;Port=5433;Database=Edurag;Username=postgres;Password=<your-local-db-password>"
   },
   "Jwt": {
     "Secret": "dev-secret-key-minimum-32-chars-1234567890!!"
@@ -82,7 +92,55 @@ Docker is **not used** for local development. Both PostgreSQL and Ollama run as 
 }
 ```
 
-> **Never commit secrets.** `appsettings.Development.json` is git-ignored. Use it for local dev overrides.
+> **Never commit secrets.** `appsettings.Development.json` is git-ignored. Use it for local dev overrides including real DB passwords and the MistralAI API key.
+
+---
+
+## AI Provider Configuration
+
+The active AI provider is controlled by `AI:Provider`. All other AI settings cascade from this choice.
+
+### Using Ollama (default — local, free)
+
+```json
+"AI": {
+  "Provider": "Ollama",
+  "EmbeddingDimensions": 768
+}
+```
+
+- Requires Ollama running locally with `nomic-embed-text` and `llama3.2` pulled
+- Embedding column in database must be `vector(768)` (default after `InitialCreate` migration)
+
+### Using MistralAI (cloud, requires API key)
+
+```json
+"AI": {
+  "Provider": "MistralAI",
+  "EmbeddingDimensions": 1024,
+  "MistralAI": {
+    "ApiKey": "YOUR_MISTRAL_API_KEY",
+    "EmbedModel": "mistral-embed",
+    "ChatModel": "mistral-large-latest",
+    "BaseUrl": "https://api.mistral.ai"
+  }
+}
+```
+
+- `ApiKey` must be set (put it in `appsettings.Development.json`, never in source)
+- Embedding column in database must be `vector(1024)` — run `scripts/migrate-to-mistralai.sql` first
+- See [[../Development/01-Setup-Guide#switching-ai-provider|Switching AI Provider]] for full steps
+
+### Switching Providers
+
+Embedding dimensions differ between providers (768 vs 1024). The database column must match. See the SQL scripts in `scripts/`:
+
+| Script | From → To | When to run |
+|--------|-----------|-------------|
+| `scripts/migrate-to-mistralai.sql` | Ollama → MistralAI | Before first run with MistralAI |
+| `scripts/migrate-to-ollama.sql` | MistralAI → Ollama | When reverting to Ollama |
+
+Both scripts delete all existing chunks and reset materials to Pending — the API re-vectorizes them automatically on next start.
 
 ---
 
@@ -93,52 +151,16 @@ Override any appsettings key using `__` as the section separator:
 ```bash
 ConnectionStrings__Default="Host=postgres;Port=5432;Database=edurag;Username=postgres;Password=STRONG_PASS"
 Jwt__Secret="REPLACE_WITH_MINIMUM_32_CHARACTER_RANDOM_KEY_HERE"
-Ollama__BaseUrl="http://ollama:11434"
-Storage__BasePath="/var/edurag/materials"
 AllowedOrigins="https://edurag.yourdomain.com"
-```
 
----
+# Ollama
+Ollama__BaseUrl="http://ollama:11434"
 
-## docker-compose.yml (actual — Ollama only in local dev)
-
-PostgreSQL is a local install; only Ollama runs in Docker for local development.
-
-```yaml
-services:
-
-  ollama:
-    image: ollama/ollama:latest
-    ports:
-      - '11434:11434'
-    volumes:
-      - E:/EduRagFiles/Ollama:/root/.ollama
-
-  api:
-    build:
-      context: ./src
-      dockerfile: EduRAG.API/Dockerfile
-    ports:
-      - '5000:8080'
-    depends_on:
-      - ollama
-    environment:
-      ConnectionStrings__Default: "Host=host.docker.internal;Port=5433;Database=Edurag;Username=postgres;Password=Strong321#"
-      Ollama__BaseUrl: "http://ollama:11434"
-      Jwt__Secret:     "REPLACE_WITH_ACTUAL_32_CHAR_PRODUCTION_SECRET!!"
-      Storage__BasePath: "/var/edurag/materials"
-      AllowedOrigins: "http://localhost:3000"
-    volumes:
-      - E:/EduRagFiles/EduRagPdfs:/var/edurag/materials
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-
-  frontend:
-    build: ./frontend
-    ports:
-      - '3000:80'
-    depends_on:
-      - api
+# OR MistralAI
+AI__Provider="MistralAI"
+AI__EmbeddingDimensions="1024"
+AI__MistralAI__ApiKey="sk-..."
+AI__MistralAI__BaseUrl="https://api.mistral.ai"
 ```
 
 ---
@@ -156,7 +178,9 @@ services:
 | `BCrypt.Net-Next` | 4.x | Password hashing |
 | `PdfPig` | 0.1.9 | PDF text extraction |
 | `System.Threading.Channels` | built-in | In-memory job queue |
-| `FluentValidation.AspNetCore` | 11.x | Request validation |
+| `System.Net.Http.Json` | built-in (.NET 8) | JSON HTTP helpers (used by MistralAI + Ollama services) |
+
+> No additional packages are required for MistralAI — it uses the same `HttpClient` + `System.Net.Http.Json` already present.
 
 ---
 
@@ -192,3 +216,4 @@ In production, redirect logs to a file or structured logging sink (Serilog recom
 - [[05-Deployment]] — how to apply these configs during deployment
 - [[03-Security]] — JWT secret requirements
 - [[../Architecture/05-API-Layer]] — DI registration that consumes these values
+- [[../Architecture/07-AI-Pipeline]] — provider comparison and selection logic

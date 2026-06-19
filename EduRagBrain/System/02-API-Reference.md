@@ -1,7 +1,7 @@
 ---
 tags: [system, api, endpoints, rest, http]
 created: 2026-06-18
-updated: 2026-06-18
+updated: 2026-06-19
 type: system
 status: stable
 aliases: [API Reference, Endpoints]
@@ -179,15 +179,120 @@ Deletes material record, all chunks, and the stored file.
 
 ---
 
-## Student — Selection
+## Admin — Students
 
-### GET `/student/classes`  `[Student]`
+### POST `/admin/students`  `[Admin]`
 
-Same shape as admin classes endpoint. Used for class selection screen.
+Create a student account with an assigned class. Use this instead of `/auth/register` for students — it enforces class assignment at creation time.
 
-### GET `/student/classes/{classId}/subjects`  `[Student]`
+**Request:**
+```json
+{ "email": "alice@school.com", "fullName": "Alice Smith", "password": "Pass@123", "classId": 1 }
+```
+
+**Response 200:**
+```json
+{ "id": "...", "email": "alice@school.com", "fullName": "Alice Smith", "role": 1, "classId": 1, "isActive": true }
+```
+
+**Errors:** 400 email already registered, 400 validation
+
+---
+
+### PUT `/admin/students/{id}`  `[Admin]`
+
+Edit a student's profile. All fields are required except `newPassword` (omit or set to `null` to keep the existing password).
+
+**Request:**
+```json
+{
+  "fullName":    "Alice Smith",
+  "email":       "alice@school.com",
+  "classId":     2,
+  "isActive":    true,
+  "newPassword": "NewPass@456"
+}
+```
+
+**Response 200:** Updated `UserDto` (same shape as create response).
+
+**Errors:** 400 student not found, 400 email already in use by another account
+
+---
+
+### DELETE `/admin/students/{id}`  `[Admin]`
+
+Soft-deactivate a student account (sets `IsActive = false`). All data — chat history, subject permissions, class assignment — is preserved. The student is immediately blocked from logging in.
+
+To reactivate, use `PUT /admin/students/{id}` with `"isActive": true`.
+
+**Response 204** (no content)
+
+**Errors:** 400 student not found, 400 student is already deactivated
+
+---
+
+### GET `/admin/students/{id}/permissions`  `[Admin]`
+
+List all subject permissions for a student.
+
+**Response 200:**
+```json
+[
+  { "id": "...", "studentId": "...", "subjectId": 10, "subjectName": "Mathematics", "grantedAt": "..." },
+  { "id": "...", "studentId": "...", "subjectId": 12, "subjectName": "Science",     "grantedAt": "..." }
+]
+```
+
+---
+
+### PUT `/admin/students/{id}/permissions`  `[Admin]`
+
+Replace all subject permissions for a student (full replace — not partial update).
+
+**Request:**
+```json
+{ "subjectIds": [10, 12, 15] }
+```
+
+**Response 204** (no content)
+
+**Errors:** 400 student not found
+
+---
+
+## Student — My Class & Subjects
+
+### GET `/student/my-class`  `[Student]`
+
+Returns the student's assigned class.
+
+**Response 200:**
+```json
+{ "classId": 1, "className": "Class 6", "grade": 6 }
+```
+
+**Response 404:** No class assigned to this student.
+
+---
+
+### GET `/student/my-subjects`  `[Student]`
+
+Returns only the subjects the admin has granted permission for.
+
+**Response 200:**
+```json
+[
+  { "subjectId": 10, "subjectName": "Mathematics", "description": "..." },
+  { "subjectId": 12, "subjectName": "Science",     "description": "..." }
+]
+```
+
+---
 
 ### GET `/student/subjects/{subjectId}/chapters`  `[Student]`
+
+Returns chapters for a subject, ordered by `OrderIndex`.
 
 ---
 

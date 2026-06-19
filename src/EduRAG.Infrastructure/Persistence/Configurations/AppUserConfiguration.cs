@@ -17,5 +17,11 @@ public class AppUserConfiguration : IEntityTypeConfiguration<AppUser>
         b.Property(x => x.Role).IsRequired();
         b.Property(x => x.IsActive).HasDefaultValue(true);
         b.Property(x => x.CreatedAt).HasDefaultValueSql("NOW()");
+
+        b.HasOne(x => x.Class)
+         .WithMany()
+         .HasForeignKey(x => x.ClassId)
+         .IsRequired(false)
+         .OnDelete(DeleteBehavior.Restrict);
     }
 }

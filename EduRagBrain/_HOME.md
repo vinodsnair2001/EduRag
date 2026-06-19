@@ -74,6 +74,8 @@ Architecture: Clean Architecture (DDD)   Auth: JWT (Admin / Student roles)
 |-----|---------|
 | [[Backlog/BACKLOG]] | Feature tracker — F-xxx features, B-xxx bugs, R-xxx refactors |
 
+---
+
 ### [[Skills/edurag-claude-skill|Claude Skills]]
 > Instructions and rules Claude follows when working in this project.
 

@@ -1,7 +1,7 @@
 ---
 tags: [architecture, frontend, react, typescript, shadcn, tailwind, sse]
 created: 2026-06-18
-updated: 2026-06-18
+updated: 2026-06-19
 type: architecture
 status: stable
 aliases: [Frontend Architecture, React, shadcn/ui]
@@ -199,7 +199,7 @@ const sendMessage = async (userText: string) => {
 | Component | Path | Description |
 |-----------|------|-------------|
 | `<LoginPage />` | auth/pages/LoginPage.tsx | Single page, tab for Admin vs Student |
-| `<ClassSubjectSelectPage />` | student/pages/ClassSubjectSelectPage.tsx | Three-step: class cards → subject cards → chapter checkboxes |
+| `<ClassSubjectSelectPage />` | student/pages/ClassSubjectSelectPage.tsx | Two-step: permitted subject cards (from `GET /student/my-subjects`) → chapter checkboxes; shows assigned class badge |
 | `<ChatPage />` | student/pages/ChatPage.tsx | SSE stream chat + practice mode |
 | `<ChatWindow />` | student/components/ChatWindow.tsx | Scrollable message list (markdown) |
 | `<ChatInput />` | student/components/ChatInput.tsx | Textarea + send button + "Quiz me" shortcut |
@@ -210,6 +210,7 @@ const sendMessage = async (userText: string) => {
 | `<ClassDetailPage />` | admin/pages/ClassDetailPage.tsx | Subjects + chapters tree |
 | `<UploadMaterialPage />` | admin/pages/UploadMaterialPage.tsx | Dropzone + metadata form |
 | `<MaterialListPage />` | admin/pages/MaterialListPage.tsx | Table with status badges |
+| `<UserManagementPage />` | admin/pages/UserManagementPage.tsx | User list; student rows show edit (pencil) and deactivate/reactivate icons; create dialog routes students through `POST /admin/students` (class picker required) and admins through `POST /auth/register`; edit dialog includes a **Subject Access** section with per-subject checkboxes loaded from `GET /admin/classes/{classId}/subjects`, pre-populated from `GET /admin/students/{id}/permissions`, saved via `PUT /admin/students/{id}/permissions` |
 | `<UploadZone />` | admin/components/UploadZone.tsx | react-dropzone, PDF-only, progress bar |
 | `<MaterialTable />` | admin/components/MaterialTable.tsx | Vectorization status colour coding |
 | `<ClassTree />` | admin/components/ClassTree.tsx | Collapsible Class → Subject → Chapter |

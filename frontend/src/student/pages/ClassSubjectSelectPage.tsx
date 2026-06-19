@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { LogOut, Sparkles, BookOpen, ChevronRight, ArrowLeft, CheckSquare, Square, Check } from 'lucide-react'
 import toast from 'react-hot-toast'
-import type { ClassDto, SubjectDto, ChapterDto } from '@/types'
+import type { StudentClassDto, StudentSubjectDto, ChapterDto } from '@/types'
 
 const SUBJECT_EMOJIS: Record<string, string> = {
   math: '🔢', mathematics: '🔢', science: '🔬', physics: '⚛️', chemistry: '🧪',
@@ -29,46 +29,39 @@ function getSubjectEmoji(name: string) {
   return Object.entries(SUBJECT_EMOJIS).find(([k]) => lower.includes(k))?.[1] ?? SUBJECT_EMOJIS.default
 }
 
-type Step = 'class' | 'subject' | 'chapter'
+type Step = 'subject' | 'chapter'
 
 export default function ClassSubjectSelectPage() {
   const { fullName, logout } = useAuth()
   const navigate = useNavigate()
 
-  const [step, setStep] = useState<Step>('class')
-  const [selectedClass, setSelectedClass] = useState<ClassDto | null>(null)
-  const [selectedSubject, setSelectedSubject] = useState<SubjectDto | null>(null)
+  const [step, setStep] = useState<Step>('subject')
+  const [selectedSubject, setSelectedSubject] = useState<StudentSubjectDto | null>(null)
   const [selectedChapterIds, setSelectedChapterIds] = useState<number[]>([])
 
-  const { data: classes, isLoading: classesLoading } = useQuery<ClassDto[]>({
-    queryKey: ['student-classes'],
-    queryFn: () => api.get('/student/classes').then(r => r.data),
+  const { data: myClass, isLoading: classLoading } = useQuery<StudentClassDto>({
+    queryKey: ['student-my-class'],
+    queryFn: () => api.get('/student/my-class').then(r => r.data),
+    retry: false,
   })
 
-  const { data: subjects, isLoading: subjectsLoading } = useQuery<SubjectDto[]>({
-    queryKey: ['student-subjects', selectedClass?.id],
-    queryFn: () => api.get(`/student/classes/${selectedClass!.id}/subjects`).then(r => r.data),
-    enabled: !!selectedClass,
+  const { data: subjects, isLoading: subjectsLoading } = useQuery<StudentSubjectDto[]>({
+    queryKey: ['student-my-subjects'],
+    queryFn: () => api.get('/student/my-subjects').then(r => r.data),
+    enabled: !!myClass,
   })
 
   const { data: chapters, isLoading: chaptersLoading } = useQuery<ChapterDto[]>({
-    queryKey: ['student-chapters', selectedSubject?.id],
-    queryFn: () => api.get(`/student/subjects/${selectedSubject!.id}/chapters`).then(r => r.data),
+    queryKey: ['student-chapters', selectedSubject?.subjectId],
+    queryFn: () => api.get(`/student/subjects/${selectedSubject!.subjectId}/chapters`).then(r => r.data),
     enabled: !!selectedSubject,
   })
 
-  const gradient = selectedClass
-    ? GRADE_GRADIENTS[(selectedClass.grade - 1) % GRADE_GRADIENTS.length]
+  const gradient = myClass
+    ? GRADE_GRADIENTS[(myClass.grade - 1) % GRADE_GRADIENTS.length]
     : 'from-violet-400 to-purple-500'
 
-  const handleClassSelect = (cls: ClassDto) => {
-    setSelectedClass(cls)
-    setSelectedSubject(null)
-    setSelectedChapterIds([])
-    setStep('subject')
-  }
-
-  const handleSubjectSelect = (subject: SubjectDto) => {
+  const handleSubjectSelect = (subject: StudentSubjectDto) => {
     setSelectedSubject(subject)
     setSelectedChapterIds([])
     setStep('chapter')
@@ -91,15 +84,15 @@ export default function ClassSubjectSelectPage() {
   }
 
   const handleStart = () => {
-    if (!selectedClass || !selectedSubject) return
+    if (!myClass || !selectedSubject) return
     if (chapters?.length && selectedChapterIds.length === 0) {
       toast.error('Please select at least one chapter.')
       return
     }
-    navigate(`/student/chat/${selectedClass.id}/${selectedSubject.id}`, {
+    navigate(`/student/chat/${myClass.classId}/${selectedSubject.subjectId}`, {
       state: {
-        className: selectedClass.name,
-        subjectName: selectedSubject.name,
+        className: myClass.className,
+        subjectName: selectedSubject.subjectName,
         chapterIds: selectedChapterIds,
         chapterTitles: chapters?.filter(c => selectedChapterIds.includes(c.id)).map(c => c.title) ?? [],
       },
@@ -128,8 +121,8 @@ export default function ClassSubjectSelectPage() {
 
         {/* Step indicator */}
         <div className="flex items-center gap-2 mb-6 pt-2">
-          {(['class', 'subject', 'chapter'] as Step[]).map((s, i) => {
-            const stepOrder = ['class', 'subject', 'chapter']
+          {(['subject', 'chapter'] as Step[]).map((s, i) => {
+            const stepOrder: Step[] = ['subject', 'chapter']
             const currentIdx = stepOrder.indexOf(step)
             const thisIdx = i
             return (
@@ -141,79 +134,37 @@ export default function ClassSubjectSelectPage() {
                   {currentIdx > thisIdx ? <Check className="w-3.5 h-3.5" /> : i + 1}
                 </div>
                 <span className={`text-sm font-display font-semibold hidden sm:block ${step === s ? 'text-brand-700' : 'text-gray-400'}`}>
-                  {s === 'class' ? 'Class' : s === 'subject' ? 'Subject' : 'Chapters'}
+                  {s === 'subject' ? 'Subject' : 'Chapters'}
                 </span>
-                {i < 2 && <div className="w-8 h-0.5 bg-gray-200 mx-1" />}
+                {i < 1 && <div className="w-8 h-0.5 bg-gray-200 mx-1" />}
               </div>
             )
           })}
         </div>
 
-        {/* ── Step 1: Class ───────────────────────────────── */}
-        {step === 'class' && (
-          <div className="animate-fade-in">
-            <div className="text-center mb-8 pt-2">
-              <div className="text-5xl mb-3">🎓</div>
-              <h1 className="font-display text-3xl sm:text-4xl font-extrabold text-gray-900 mb-2">
-                Select your class
-              </h1>
-              <p className="text-gray-500 font-display text-lg">Which class are you in?</p>
+        {/* Class badge — always visible */}
+        {classLoading ? (
+          <Skeleton className="h-16 rounded-2xl mb-6" />
+        ) : myClass ? (
+          <div className={`flex items-center gap-4 rounded-2xl bg-gradient-to-br ${gradient} p-5 text-white shadow-lg mb-8 animate-slide-up`}>
+            <div className="text-4xl font-display font-black opacity-90">{myClass.grade}</div>
+            <div>
+              <div className="font-display font-extrabold text-lg leading-tight">{myClass.className}</div>
+              <div className="text-sm opacity-80">Your class</div>
             </div>
-            {classesLoading ? (
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-2xl" />)}
-              </div>
-            ) : classes?.length ? (
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {classes.map(cls => {
-                  const g = GRADE_GRADIENTS[(cls.grade - 1) % GRADE_GRADIENTS.length]
-                  return (
-                    <button
-                      key={cls.id}
-                      type="button"
-                      onClick={() => handleClassSelect(cls)}
-                      className={`group flex items-center gap-4 p-5 bg-gradient-to-br ${g} rounded-2xl shadow-card hover:shadow-card-hover hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 text-white text-left`}
-                    >
-                      <div className="text-4xl font-display font-black opacity-90">{cls.grade}</div>
-                      <div className="flex-1 min-w-0">
-                        <div className="font-display font-bold text-lg leading-tight">{cls.name}</div>
-                        <div className="text-sm opacity-80">Grade {cls.grade}</div>
-                      </div>
-                      <ChevronRight className="w-5 h-5 opacity-70 group-hover:translate-x-1 transition-transform" />
-                    </button>
-                  )
-                })}
-              </div>
-            ) : (
-              <div className="text-center py-16 text-gray-400 font-display bg-white rounded-2xl shadow-sm">
-                <div className="text-5xl mb-3">📭</div>
-                <p className="text-lg">No classes available yet. Ask your teacher!</p>
-              </div>
-            )}
+          </div>
+        ) : (
+          <div className="text-center py-10 text-gray-400 font-display mb-8 bg-white rounded-2xl shadow-sm">
+            <div className="text-5xl mb-3">😔</div>
+            <p className="text-lg">No class assigned yet. Ask your teacher!</p>
           </div>
         )}
 
-        {/* ── Step 2: Subject ─────────────────────────────── */}
-        {step === 'subject' && selectedClass && (
+        {/* ── Step 1: Subject ─────────────────────────────── */}
+        {step === 'subject' && myClass && (
           <div className="animate-fade-in">
-            <button
-              type="button"
-              onClick={() => setStep('class')}
-              className="flex items-center gap-1 text-brand-600 font-display font-semibold text-sm mb-4 hover:underline"
-            >
-              <ArrowLeft className="w-4 h-4" /> Back to classes
-            </button>
-
-            <div className={`flex items-center gap-4 rounded-2xl bg-gradient-to-br ${gradient} p-5 text-white shadow-lg mb-8`}>
-              <div className="text-4xl font-display font-black opacity-90">{selectedClass.grade}</div>
-              <div>
-                <div className="font-display font-extrabold text-lg leading-tight">{selectedClass.name}</div>
-                <div className="text-sm opacity-80">Your class</div>
-              </div>
-            </div>
-
             <h2 className="font-display text-xl font-bold text-gray-700 mb-4 flex items-center gap-2">
-              <BookOpen className="w-5 h-5 text-brand-500" /> Choose a subject
+              <BookOpen className="w-5 h-5 text-brand-500" /> Your subjects
             </h2>
             {subjectsLoading ? (
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -223,16 +174,16 @@ export default function ClassSubjectSelectPage() {
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {subjects.map(s => (
                   <button
-                    key={s.id}
+                    key={s.subjectId}
                     type="button"
                     onClick={() => handleSubjectSelect(s)}
                     className="group flex items-center gap-4 p-5 bg-white rounded-2xl shadow-card hover:shadow-card-hover hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 text-left border border-brand-100 hover:border-brand-300"
                   >
                     <span className="text-4xl group-hover:scale-110 transition-transform duration-200">
-                      {getSubjectEmoji(s.name)}
+                      {getSubjectEmoji(s.subjectName)}
                     </span>
                     <div className="flex-1 min-w-0">
-                      <div className="font-display font-bold text-gray-900 truncate">{s.name}</div>
+                      <div className="font-display font-bold text-gray-900 truncate">{s.subjectName}</div>
                       {s.description && (
                         <div className="text-sm text-gray-500 truncate mt-0.5">{s.description}</div>
                       )}
@@ -244,13 +195,13 @@ export default function ClassSubjectSelectPage() {
             ) : (
               <div className="text-center py-16 text-gray-400 font-display bg-white rounded-2xl shadow-sm">
                 <div className="text-5xl mb-3">📭</div>
-                <p className="text-lg">No subjects in this class yet.</p>
+                <p className="text-lg">No subjects assigned yet. Ask your teacher!</p>
               </div>
             )}
           </div>
         )}
 
-        {/* ── Step 3: Chapters ────────────────────────────── */}
+        {/* ── Step 2: Chapters ────────────────────────────── */}
         {step === 'chapter' && selectedSubject && (
           <div className="animate-fade-in">
             <button
@@ -262,10 +213,10 @@ export default function ClassSubjectSelectPage() {
             </button>
 
             <div className="flex items-center gap-3 mb-6 p-4 bg-white rounded-2xl shadow-sm border border-brand-100">
-              <span className="text-3xl">{getSubjectEmoji(selectedSubject.name)}</span>
+              <span className="text-3xl">{getSubjectEmoji(selectedSubject.subjectName)}</span>
               <div>
-                <div className="font-display font-bold text-gray-900">{selectedSubject.name}</div>
-                <div className="text-sm text-gray-500">{selectedClass?.name}</div>
+                <div className="font-display font-bold text-gray-900">{selectedSubject.subjectName}</div>
+                <div className="text-sm text-gray-500">{myClass?.className}</div>
               </div>
             </div>
 

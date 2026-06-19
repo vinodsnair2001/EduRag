@@ -13,7 +13,7 @@ public class UserQueries : IUserQueries
     public async Task<IEnumerable<UserDto>> GetAllAsync()
     {
         const string sql = @"
-            SELECT ""Id"", ""Email"", ""FullName"", ""Role"", ""IsActive"", ""CreatedAt"", ""LastLoginAt""
+            SELECT ""Id"", ""Email"", ""FullName"", ""Role"", ""IsActive"", ""CreatedAt"", ""LastLoginAt"", ""ClassId""
             FROM ""AppUsers""
             ORDER BY ""CreatedAt"" DESC";
         return await _db.QueryAsync<UserDto>(sql);

@@ -1,7 +1,7 @@
 ---
 tags: [changelog, history]
 created: 2026-06-18
-updated: 2026-06-19
+updated: 2026-06-19 (2)
 type: changelog
 status: stable
 aliases: [Changelog, Change History]
@@ -15,7 +15,7 @@ All changes to the EduRAG codebase and documentation are recorded here.
 
 ---
 
-## 2026-06-19 — B-004: EF Core Vector Dimension Hardcode + Missing MistralAI Provider
+## 2026-06-19 — B-005: EF Core Vector Dimension Hardcode + Missing MistralAI Provider
 
 **Type:** Fix
 **Branch:** `feature-Vectorisation-based-on-class-subject-chapter`
@@ -100,6 +100,192 @@ Second issue: `ServiceRegistration.cs` always registered `OllamaAIService` regar
 | `frontend/src/admin/pages/MaterialListPage.tsx` | chapter dropdown |
 | `frontend/src/student/pages/ClassSubjectSelectPage.tsx` | three-step wizard |
 | `frontend/src/student/pages/ChatPage.tsx` | chapter IDs to session + header |
+## 2026-06-19 — Admin: subject permission editing on student edit dialog
+
+**Type:** Feature
+**Branch:** `feature-StudentClassSubjectPermission`
+**Affected:** Frontend
+
+### What changed
+
+- **`types/index.ts`** — added `StudentPermissionDto` interface (`id`, `studentId`, `subjectId`, `subjectName`, `grantedAt`)
+- **`UserManagementPage.tsx`** — edit student dialog now includes a **Subject Access** section:
+  - Fetches class subjects via `GET /admin/classes/{classId}/subjects` (enabled when class is selected)
+  - Fetches existing permissions via `GET /admin/students/{id}/permissions` (enabled when dialog opens)
+  - Pre-checks subjects the student currently has access to
+  - Clearing/changing the class resets subject selections
+  - **Save Changes** calls both `PUT /admin/students/{id}` (profile) and `PUT /admin/students/{id}/permissions` (full-replace permissions) in sequence
+  - Dialog content is scrollable (`max-h-[90vh] overflow-y-auto`) to handle long subject lists
+
+### Docs updated
+- [[../Architecture/06-Frontend]] — `UserManagementPage` component map entry updated
+- [[../User/01-Admin-Guide]] — added "Edit a Student's Subject Permissions" section
+
+---
+
+## 2026-06-19 — Student Portal: wire class/subject to permission endpoints (feature-StudentClassSubjectPermission)
+
+**Type:** Fix
+**Branch:** `feature-StudentClassSubjectPermission`
+**Affected:** Frontend
+
+### What changed
+
+`ClassSubjectSelectPage` was calling the old open endpoints (`GET /student/classes` and `GET /student/classes/{classId}/subjects`) which no longer exist on `StudentController`. It now calls the permission-scoped endpoints added in F-003.
+
+#### `ClassSubjectSelectPage.tsx` — full rewrite
+- Was: two-step flow — pick from a grid of **all** classes, then pick from **all** subjects for that class
+- Now: single screen — loads the student's **one assigned class** via `GET /student/my-class`, then loads only their **permitted subjects** via `GET /student/my-subjects`
+- Empty states for "no class assigned" and "no subjects assigned" guide the student to contact their teacher
+- Subject cards still use emoji icons and grade-based gradient colours
+
+#### `UserManagementPage.tsx` — admin user list
+- Student rows now show a **pencil** (edit) icon and a **UserX / UserCheck** (deactivate/reactivate) icon
+- Create dialog routes student accounts through `POST /admin/students` (with class dropdown) and admin accounts through `POST /auth/register`
+- Both create and edit dialogs fetch `GET /admin/classes` for the class picker
+
+#### `types/index.ts`
+- Added `StudentClassDto { classId, className, grade }`
+- Added `StudentSubjectDto { subjectId, subjectName, description }`
+- Added `classId?: number` to `UserDto`
+
+### Root cause
+`StudentController` was rewritten to drop the old open `/student/classes` and `/student/classes/{classId}/subjects` routes in favour of the permission-scoped `my-class` / `my-subjects` routes, but the frontend was not updated at the same time.
+
+### Docs updated
+- [[../Architecture/06-Frontend]] — updated `ClassSubjectSelectPage` and `UserManagementPage` descriptions in component map
+
+---
+
+## 2026-06-19 — Edit & Deactivate Student Accounts (feature-StudentClassSubjectPermission)
+
+**Type:** Feature
+**Branch:** `feature-StudentClassSubjectPermission`
+**Affected:** Backend, Docs
+
+### What changed
+
+Admins can now edit and deactivate student accounts via the API.
+
+#### New DTO
+- `UpdateStudentRequest` — `FullName`, `Email`, `ClassId`, `IsActive`, `NewPassword?`
+
+#### Updated interfaces / implementations
+- `IUserRepository` — added `UpdateAsync(AppUser)` and `DeleteAsync(Guid)` (DeleteAsync retained for future use)
+- `UserRepository` — implemented both methods
+- `ManageStudentUseCase` — new `UpdateStudentAsync` (validates email uniqueness, optional password reset) and `DeactivateStudentAsync` (soft delete — sets `IsActive = false`, data preserved)
+
+#### New admin endpoints
+| Method | Path | Description |
+|--------|------|-------------|
+| `PUT` | `/api/admin/students/{id}` | Edit student profile, class, active status, optional password reset |
+| `DELETE` | `/api/admin/students/{id}` | Soft-deactivate (IsActive=false); student cannot log in; all data preserved |
+
+#### Reactivation
+Use `PUT /admin/students/{id}` with `"isActive": true` — no separate endpoint needed.
+
+### Docs updated
+- [[../System/02-API-Reference]] — added PUT and DELETE student endpoints with soft-delete semantics
+- [[../Backlog/BACKLOG]] — added F-004 with detail section
+
+---
+
+## 2026-06-19 — Student Class & Subject Permissions (feature-StudentClassSubjectPermission)
+
+**Type:** Feature
+**Branch:** `feature-StudentClassSubjectPermission`
+**Affected:** Backend, Database, Docs
+
+### What changed
+
+Added class assignment and subject-level access control for student accounts.
+
+#### New entities / tables
+- `StudentPermission` domain entity + `StudentPermissions` DB table — join table storing which subjects a student may access, with a unique constraint on `(StudentId, SubjectId)`
+- `AppUser.ClassId` — nullable FK to `Classes`; `null` for Admin users, required for Student users
+
+#### New files
+- `EduRAG.Domain/Entities/StudentPermission.cs`
+- `EduRAG.Application/UseCases/ManageStudentUseCase.cs`
+- `EduRAG.Application/Interfaces/IRepositories.cs` — `IStudentPermissionRepository`
+- `EduRAG.Application/Interfaces/IQueryServices.cs` — `IStudentPermissionQueries`
+- `EduRAG.Infrastructure/Persistence/Configurations/StudentPermissionConfiguration.cs`
+- `EduRAG.Infrastructure/Persistence/Repositories/StudentPermissionRepository.cs`
+- `EduRAG.Infrastructure/Persistence/Queries/StudentPermissionQueries.cs`
+- `EduRAG.Infrastructure/Migrations/20260619112422_AddStudentClassPermissions.cs`
+- `EduRagBrain/Backlog/BACKLOG.md` — new task tracker document
+
+#### Modified files
+- `AppUser.cs` — added `ClassId`, `Class`, `SubjectPermissions`
+- `Subject.cs` — added `StudentPermissions` navigation
+- `AppUserConfiguration.cs` — added `ClassId` FK config
+- `AppDbContext.cs` — added `StudentPermissions` DbSet
+- `UserDtos.cs` — `UserDto` adds `ClassId`; 5 new DTO types
+- `UserQueries.cs` — added `ClassId` to SELECT
+- `ServiceRegistration.cs` — registered new use case, repository, and query service
+- `AdminController.cs` — 3 new endpoints (create student, get/set permissions)
+- `StudentController.cs` — replaced with `my-class`, `my-subjects`, chapters (dropped open class/subject list)
+
+#### New admin endpoints
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/admin/students` | Create student with class assignment |
+| `GET` | `/api/admin/students/{id}/permissions` | List student's subject permissions |
+| `PUT` | `/api/admin/students/{id}/permissions` | Replace all subject permissions |
+
+#### New student endpoints
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/student/my-class` | Student's assigned class |
+| `GET` | `/api/student/my-subjects` | Student's permitted subjects only |
+
+### Docs updated
+- [[../Architecture/02-Domain-Layer]] — added `StudentPermission` entity, updated `AppUser`, updated entity hierarchy
+- [[../System/01-Database-Schema]] — added `ClassId` to `AppUsers` DDL, new `StudentPermissions` DDL, updated ERD
+- [[../System/02-API-Reference]] — added all 5 new endpoints
+- [[../_HOME]] — added Backlog navigation section
+- [[../Backlog/BACKLOG]] — created with F-003 detail, planned items P-001..P-004
+
+---
+
+## 2026-06-19 — MistralAI Provider Support (feature-ImplementationMisteralAI)
+
+**Type:** Feature
+**Branch:** `feature-ImplementationMisteralAI`
+**Affected:** Infrastructure, Configuration, Scripts, Docs
+
+### What changed
+
+Added MistralAI as an alternative AI provider alongside Ollama. The active provider is selected by a single config key (`AI:Provider`) — all embedding, vectorization, and chat functionality routes through the same `IAIService` interface.
+
+#### New files
+- `src/EduRAG.Infrastructure/Services/MistralAIService.cs` — implements `IAIService` using the MistralAI REST API (`mistral-embed` for embeddings, `mistral-large-latest` for streaming chat)
+- `scripts/migrate-to-mistralai.sql` — SQL script to change `Embedding` column from `vector(768)` → `vector(1024)`, clear old chunks, reset materials to Pending
+- `scripts/migrate-to-ollama.sql` — SQL script to revert from `vector(1024)` → `vector(768)`
+
+#### Modified files
+- `src/EduRAG.API/appsettings.json` — added `AI` config section (`Provider`, `EmbeddingDimensions`, `MistralAI.*`)
+- `src/EduRAG.Infrastructure/ServiceRegistration.cs` — conditional `IAIService` registration based on `AI:Provider`
+- `src/EduRAG.Infrastructure/Services/VectorSearchService.cs` — reads vector dimension from `AI:EmbeddingDimensions` config instead of hard-coding 768
+- `src/EduRAG.Infrastructure/Persistence/AppDbContextFactory.cs` — now reads connection string from `appsettings.json` instead of hard-coding credentials
+
+### Provider details
+
+| | Ollama (default) | MistralAI |
+|-|-----------------|-----------|
+| Config | `AI:Provider = "Ollama"` | `AI:Provider = "MistralAI"` |
+| Embed dims | 768 | 1024 |
+| API key | Not required | `AI:MistralAI:ApiKey` |
+| DB column | `vector(768)` | `vector(1024)` |
+
+### Migration note
+
+Switching providers requires running a SQL script (`scripts/migrate-to-*.sql`) to change the embedding column dimension and re-vectorizing all PDFs. Ollama config is unchanged — existing Ollama setups require no action.
+
+### Docs updated
+- `EduRagBrain/Architecture/07-AI-Pipeline.md` — updated with MistralAI data flow, service code, provider comparison table
+- `EduRagBrain/System/04-Configuration.md` — added `AI` section, switching guide, env-var examples
+- `EduRagBrain/Development/01-Setup-Guide.md` — added "Switching AI Provider" section with step-by-step instructions
 
 ---
 

@@ -3,6 +3,7 @@ using System;
 using EduRAG.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Pgvector;
@@ -12,9 +13,11 @@ using Pgvector;
 namespace EduRAG.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260619112422_AddStudentClassPermissions")]
+    partial class AddStudentClassPermissions
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -154,9 +157,6 @@ namespace EduRAG.Infrastructure.Migrations
                     b.Property<DateTime?>("EndedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<string>("SelectedChapterIds")
-                        .HasColumnType("text");
-
                     b.Property<DateTime>("StartedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
@@ -245,9 +245,6 @@ namespace EduRAG.Infrastructure.Migrations
                     b.HasIndex("MaterialId");
 
                     b.HasIndex("ClassId", "SubjectId");
-
-                    b.HasIndex("ClassId", "SubjectId", "ChapterId")
-                        .HasDatabaseName("idx_chunks_class_subject_chapter");
 
                     b.ToTable("MaterialChunks", (string)null);
                 });
