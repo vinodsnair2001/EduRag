@@ -12,6 +12,7 @@ public interface ISubjectQueries
 {
     Task<SubjectDto?> GetByIdAsync(int subjectId);
     Task<IEnumerable<SubjectDto>> GetByClassIdAsync(int classId);
+    Task<IEnumerable<SubjectDto>> GetByClassIdForStudentAsync(int classId, Guid studentId);
 }
 
 public interface IClassQueries

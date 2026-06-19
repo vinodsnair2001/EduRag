@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { LogOut, Sparkles, BookOpen, ChevronRight, ArrowLeft, CheckSquare, Square, Check } from 'lucide-react'
 import toast from 'react-hot-toast'
-import type { StudentClassDto, StudentSubjectDto, ChapterDto } from '@/types'
+import type { StudentClassDto, SubjectDto, ChapterDto } from '@/types'
 
 const SUBJECT_EMOJIS: Record<string, string> = {
   math: '🔢', mathematics: '🔢', science: '🔬', physics: '⚛️', chemistry: '🧪',
@@ -36,7 +36,7 @@ export default function ClassSubjectSelectPage() {
   const navigate = useNavigate()
 
   const [step, setStep] = useState<Step>('subject')
-  const [selectedSubject, setSelectedSubject] = useState<StudentSubjectDto | null>(null)
+  const [selectedSubject, setSelectedSubject] = useState<SubjectDto | null>(null)
   const [selectedChapterIds, setSelectedChapterIds] = useState<number[]>([])
 
   const { data: myClass, isLoading: classLoading } = useQuery<StudentClassDto>({
@@ -45,15 +45,15 @@ export default function ClassSubjectSelectPage() {
     retry: false,
   })
 
-  const { data: subjects, isLoading: subjectsLoading } = useQuery<StudentSubjectDto[]>({
-    queryKey: ['student-my-subjects'],
-    queryFn: () => api.get('/student/my-subjects').then(r => r.data),
+  const { data: subjects, isLoading: subjectsLoading } = useQuery<SubjectDto[]>({
+    queryKey: ['student-subjects', myClass?.classId],
+    queryFn: () => api.get(`/student/classes/${myClass!.classId}/subjects`).then(r => r.data),
     enabled: !!myClass,
   })
 
   const { data: chapters, isLoading: chaptersLoading } = useQuery<ChapterDto[]>({
-    queryKey: ['student-chapters', selectedSubject?.subjectId],
-    queryFn: () => api.get(`/student/subjects/${selectedSubject!.subjectId}/chapters`).then(r => r.data),
+    queryKey: ['student-chapters', selectedSubject?.id],
+    queryFn: () => api.get(`/student/subjects/${selectedSubject!.id}/chapters`).then(r => r.data),
     enabled: !!selectedSubject,
   })
 
@@ -61,7 +61,7 @@ export default function ClassSubjectSelectPage() {
     ? GRADE_GRADIENTS[(myClass.grade - 1) % GRADE_GRADIENTS.length]
     : 'from-violet-400 to-purple-500'
 
-  const handleSubjectSelect = (subject: StudentSubjectDto) => {
+  const handleSubjectSelect = (subject: SubjectDto) => {
     setSelectedSubject(subject)
     setSelectedChapterIds([])
     setStep('chapter')
@@ -89,10 +89,10 @@ export default function ClassSubjectSelectPage() {
       toast.error('Please select at least one chapter.')
       return
     }
-    navigate(`/student/chat/${myClass.classId}/${selectedSubject.subjectId}`, {
+    navigate(`/student/chat/${myClass.classId}/${selectedSubject.id}`, {
       state: {
         className: myClass.className,
-        subjectName: selectedSubject.subjectName,
+        subjectName: selectedSubject.name,
         chapterIds: selectedChapterIds,
         chapterTitles: chapters?.filter(c => selectedChapterIds.includes(c.id)).map(c => c.title) ?? [],
       },
@@ -174,16 +174,16 @@ export default function ClassSubjectSelectPage() {
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {subjects.map(s => (
                   <button
-                    key={s.subjectId}
+                    key={s.id}
                     type="button"
                     onClick={() => handleSubjectSelect(s)}
                     className="group flex items-center gap-4 p-5 bg-white rounded-2xl shadow-card hover:shadow-card-hover hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 text-left border border-brand-100 hover:border-brand-300"
                   >
                     <span className="text-4xl group-hover:scale-110 transition-transform duration-200">
-                      {getSubjectEmoji(s.subjectName)}
+                      {getSubjectEmoji(s.name)}
                     </span>
                     <div className="flex-1 min-w-0">
-                      <div className="font-display font-bold text-gray-900 truncate">{s.subjectName}</div>
+                      <div className="font-display font-bold text-gray-900 truncate">{s.name}</div>
                       {s.description && (
                         <div className="text-sm text-gray-500 truncate mt-0.5">{s.description}</div>
                       )}
@@ -213,9 +213,9 @@ export default function ClassSubjectSelectPage() {
             </button>
 
             <div className="flex items-center gap-3 mb-6 p-4 bg-white rounded-2xl shadow-sm border border-brand-100">
-              <span className="text-3xl">{getSubjectEmoji(selectedSubject.subjectName)}</span>
+              <span className="text-3xl">{getSubjectEmoji(selectedSubject.name)}</span>
               <div>
-                <div className="font-display font-bold text-gray-900">{selectedSubject.subjectName}</div>
+                <div className="font-display font-bold text-gray-900">{selectedSubject.name}</div>
                 <div className="text-sm text-gray-500">{myClass?.className}</div>
               </div>
             </div>

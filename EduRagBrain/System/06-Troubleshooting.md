@@ -280,6 +280,51 @@ Check: `ChatSession.UserId` must equal the `sub` claim in the JWT.
 
 ---
 
+## Student Permission Issues
+
+### Student sees "No subjects assigned yet" after admin grants permissions
+
+**Symptom:** Admin saves subject permissions for a student. The student logs in and the subject selection page (`ClassSubjectSelectPage`) shows an empty list with "No subjects assigned yet. Ask your teacher!" even though permissions were saved correctly in the `StudentPermissions` table.
+
+**Root cause:** Correlated subquery column ambiguity in `GetByClassIdForStudentAsync`.
+
+Both `"Subjects"` and `"StudentPermissions"` have a column named `"Id"`. In the `OR EXISTS` subquery, an unqualified `"Id"` reference is resolved by PostgreSQL from the innermost scope first — so `"Id"` resolves to `StudentPermissions."Id"` (type `uuid`) instead of `Subjects."Id"` (type `int`). The integer-to-uuid type mismatch makes `EXISTS` always return false when any permission rows exist, producing an empty subject list.
+
+**Fix (applied in branch `feature-StudentSubjectPermission`):**
+
+Add a table alias to the outer `"Subjects"` table and qualify all references in the correlated subquery:
+
+```csharp
+// SubjectQueries.GetByClassIdForStudentAsync — correct SQL
+const string sql = @"
+    SELECT s.""Id"", s.""Name"", s.""Description"", s.""ClassId"", s.""IsActive""
+    FROM ""Subjects"" s
+    WHERE s.""ClassId"" = @classId AND s.""IsActive"" = TRUE
+      AND (
+        NOT EXISTS (SELECT 1 FROM ""StudentPermissions"" WHERE ""StudentId"" = @studentId)
+        OR EXISTS  (SELECT 1 FROM ""StudentPermissions"" WHERE ""StudentId"" = @studentId AND ""SubjectId"" = s.""Id"")
+      )
+    ORDER BY s.""Name""";
+```
+
+**Diagnosis query:**
+
+```sql
+-- Check what the broken query returns for a student (replace GUIDs)
+SELECT s."Id", s."Name"
+FROM "Subjects" s
+WHERE s."ClassId" = 1 AND s."IsActive" = TRUE
+  AND (
+    NOT EXISTS (SELECT 1 FROM "StudentPermissions" WHERE "StudentId" = '<studentId>')
+    OR EXISTS  (SELECT 1 FROM "StudentPermissions" WHERE "StudentId" = '<studentId>' AND "SubjectId" = s."Id")
+  );
+
+-- Verify permissions are actually stored
+SELECT * FROM "StudentPermissions" WHERE "StudentId" = '<studentId>';
+```
+
+---
+
 ## Frontend Issues
 
 ### CORS error: `blocked by CORS policy`

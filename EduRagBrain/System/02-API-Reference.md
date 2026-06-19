@@ -272,19 +272,23 @@ Returns the student's assigned class.
 { "classId": 1, "className": "Class 6", "grade": 6 }
 ```
 
-**Response 404:** No class assigned to this student.
+**Response 404:** No class assigned to this student — admin must assign one.
 
 ---
 
-### GET `/student/my-subjects`  `[Student]`
+### GET `/student/classes/{classId}/subjects`  `[Student]`
 
-Returns only the subjects the admin has granted permission for.
+Returns subjects for the given class, filtered by the student's subject permissions.
+
+**Permission logic:**
+- If the student has **no permission records** → returns **all active subjects** in the class (open access).
+- If the student has **any permission records** → returns only subjects the admin explicitly granted.
 
 **Response 200:**
 ```json
 [
-  { "subjectId": 10, "subjectName": "Mathematics", "description": "..." },
-  { "subjectId": 12, "subjectName": "Science",     "description": "..." }
+  { "id": 10, "name": "Mathematics", "description": "...", "classId": 1, "isActive": true },
+  { "id": 12, "name": "Science",     "description": "...", "classId": 1, "isActive": true }
 ]
 ```
 

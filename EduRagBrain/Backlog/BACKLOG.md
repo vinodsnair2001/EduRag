@@ -44,6 +44,7 @@ Add new rows at the **top** of each section. Never delete rows — change status
 
 | # | Title | Status | Branch | Notes |
 |---|-------|--------|--------|-------|
+| B-006 | Student sees empty subject list after admin grants permissions | Done | `feature-StudentSubjectPermission` | Correlated subquery in `GetByClassIdForStudentAsync` — unaliased `"Id"` resolved to `StudentPermissions."Id"` (Guid) not `Subjects."Id"` (int); type mismatch made EXISTS always false; fixed with table alias `s` |
 | B-005 | EF Core vector dimension hardcode + missing MistralAI provider | Done | `feature-Vectorisation-based-on-class-subject-chapter` | `HasColumnType("vector(768)")` hardcoded in MaterialChunkConfig; AppDbContext now reads `AI:EmbeddingDimensions` from config; MistralAIService ported from main; ServiceRegistration conditionally picks provider |
 | B-004 | Student portal calling removed `/student/classes` endpoints | Done | `feature-StudentClassSubjectPermission` | Frontend not updated when StudentController endpoints changed; rewired to `my-class` + `my-subjects` |
 | B-003 | Vector locale bug — float comma-decimal → 1536 dims | Done | `main` | `string.Join` used current culture; fixed with `InvariantCulture` |
@@ -158,6 +159,60 @@ RAG search is currently scoped to Class + Subject. This feature adds Chapter-lev
 - `frontend/src/admin/pages/MaterialListPage.tsx` — chapter dropdown
 - `frontend/src/student/pages/ClassSubjectSelectPage.tsx` — chapter selection step (permission-scoped)
 - `frontend/src/student/pages/ChatPage.tsx` — chapter IDs in session creation + header
+
+---
+
+## Bug B-006 Detail — Student Sees Empty Subject List After Admin Grants Permissions
+
+**Branch:** `feature-StudentSubjectPermission`
+**Status:** Done (2026-06-19)
+
+### Symptom
+
+Admin saves subject permissions for a student via `PUT /admin/students/{id}/permissions`. Permissions are stored correctly in the `StudentPermissions` table. But when the student logs in, `ClassSubjectSelectPage` shows "No subjects assigned yet. Ask your teacher!" — the API returns an empty array.
+
+### Root Cause
+
+`SubjectQueries.GetByClassIdForStudentAsync` contained a correlated subquery without a table alias on the outer `"Subjects"` table:
+
+```sql
+-- BROKEN: "Id" resolves to StudentPermissions."Id" (Guid), not Subjects."Id" (int)
+OR EXISTS (SELECT 1 FROM "StudentPermissions"
+           WHERE "StudentId" = @studentId AND "SubjectId" = "Id")
+```
+
+Both `"Subjects"` and `"StudentPermissions"` have a column named `"Id"`. PostgreSQL resolves unqualified column references from the innermost scope outward. Inside the `EXISTS` subquery, `"Id"` matched `StudentPermissions."Id"` (type `uuid`) instead of the intended `Subjects."Id"` (type `int`). The implicit `int = uuid` comparison always evaluated to false, so no subject rows were ever returned once any permission records existed.
+
+The `NOT EXISTS` half of the condition (open-access fallback) was correct — so students with zero permissions saw all subjects, but students with any permissions saw nothing.
+
+### Fix
+
+Added table alias `s` to the outer `"Subjects"` table and qualified all column references in the correlated subquery:
+
+```sql
+-- FIXED: s."Id" unambiguously refers to Subjects."Id" (int)
+SELECT s."Id", s."Name", s."Description", s."ClassId", s."IsActive"
+FROM "Subjects" s
+WHERE s."ClassId" = @classId AND s."IsActive" = TRUE
+  AND (
+    NOT EXISTS (SELECT 1 FROM "StudentPermissions" WHERE "StudentId" = @studentId)
+    OR EXISTS  (SELECT 1 FROM "StudentPermissions" WHERE "StudentId" = @studentId AND "SubjectId" = s."Id")
+  )
+ORDER BY s."Name"
+```
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `EduRAG.Infrastructure/Persistence/Queries/SubjectQueries.cs` | Add alias `s` to `"Subjects"`; qualify all column refs in correlated subquery |
+| `EduRagBrain/System/06-Troubleshooting.md` | New "Student Permission Issues" section with diagnosis query |
+| `CLAUDE.md` | New row in "Common Mistakes" — unaliased outer table in correlated subquery |
+| `EduRagBrain/Changelog/CHANGELOG.md` | B-006 entry |
+
+### Prevention
+
+Any Dapper SQL that uses a correlated subquery where the inner table shares a column name with the outer table **must** alias the outer table and qualify the column reference. Added to `CLAUDE.md` common mistakes table.
 
 ---
 
