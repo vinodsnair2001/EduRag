@@ -1,11 +1,12 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import api from '@/lib/api'
 import { useAuth } from '@/auth/AuthContext'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { LogOut, Sparkles, BookOpen, ChevronRight, ArrowLeft, CheckSquare, Square, Check } from 'lucide-react'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { LogOut, Sparkles, BookOpen, ChevronRight, ArrowLeft, CheckSquare, Square, Check, FileText, Download } from 'lucide-react'
 import toast from 'react-hot-toast'
 import type { StudentClassDto, SubjectDto, ChapterDto } from '@/types'
 
@@ -38,6 +39,23 @@ export default function ClassSubjectSelectPage() {
   const [step, setStep] = useState<Step>('subject')
   const [selectedSubject, setSelectedSubject] = useState<SubjectDto | null>(null)
   const [selectedChapterIds, setSelectedChapterIds] = useState<number[]>([])
+  const [pdfChapter, setPdfChapter] = useState<ChapterDto | null>(null)
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null)
+  const [pdfLoading, setPdfLoading] = useState(false)
+
+  useEffect(() => {
+    if (!pdfChapter) {
+      if (pdfUrl) { URL.revokeObjectURL(pdfUrl); setPdfUrl(null) }
+      return
+    }
+    let cancelled = false
+    setPdfLoading(true)
+    api.get(`/student/chapters/${pdfChapter.id}/pdf`, { responseType: 'blob' })
+      .then(r => { if (!cancelled) setPdfUrl(URL.createObjectURL(r.data)) })
+      .catch(() => { if (!cancelled) { toast.error('Could not load PDF.'); setPdfChapter(null) } })
+      .finally(() => { if (!cancelled) setPdfLoading(false) })
+    return () => { cancelled = true }
+  }, [pdfChapter])
 
   const { data: myClass, isLoading: classLoading } = useQuery<StudentClassDto>({
     queryKey: ['student-my-class'],
@@ -256,25 +274,39 @@ export default function ClassSubjectSelectPage() {
                   {chapters.map((ch, idx) => {
                     const isSelected = selectedChapterIds.includes(ch.id)
                     return (
-                      <button
+                      <div
                         key={ch.id}
-                        type="button"
-                        onClick={() => toggleChapter(ch.id)}
-                        className={`flex items-center gap-3 w-full p-4 rounded-2xl border-2 transition-all text-left ${
+                        className={`flex items-center rounded-2xl border-2 transition-all ${
                           isSelected
                             ? 'bg-brand-50 border-brand-400 shadow-sm'
                             : 'bg-white border-gray-200 hover:border-brand-200 hover:bg-brand-50/40'
                         }`}
                       >
-                        <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 font-bold text-sm transition-colors ${
-                          isSelected ? 'bg-brand-500 text-white' : 'bg-gray-100 text-gray-500'
-                        }`}>
-                          {isSelected ? <Check className="w-4 h-4" /> : idx + 1}
-                        </div>
-                        <span className={`font-display font-semibold leading-snug ${isSelected ? 'text-brand-800' : 'text-gray-700'}`}>
-                          {ch.title}
-                        </span>
-                      </button>
+                        <button
+                          type="button"
+                          onClick={() => toggleChapter(ch.id)}
+                          className="flex items-center gap-3 flex-1 text-left p-4 min-w-0"
+                        >
+                          <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 font-bold text-sm transition-colors ${
+                            isSelected ? 'bg-brand-500 text-white' : 'bg-gray-100 text-gray-500'
+                          }`}>
+                            {isSelected ? <Check className="w-4 h-4" /> : idx + 1}
+                          </div>
+                          <span className={`font-display font-semibold leading-snug ${isSelected ? 'text-brand-800' : 'text-gray-700'}`}>
+                            {ch.title}
+                          </span>
+                        </button>
+                        {ch.hasPdf && (
+                          <button
+                            type="button"
+                            onClick={() => setPdfChapter(ch)}
+                            className="shrink-0 p-3 mr-1 rounded-xl text-brand-400 hover:text-brand-600 hover:bg-brand-100 transition-colors"
+                            title="View chapter PDF"
+                          >
+                            <FileText className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
                     )
                   })}
                 </div>
@@ -312,6 +344,40 @@ export default function ClassSubjectSelectPage() {
           </div>
         )}
       </main>
+
+      {/* PDF Viewer */}
+      <Dialog open={!!pdfChapter} onOpenChange={open => { if (!open) setPdfChapter(null) }}>
+        <DialogContent className="max-w-4xl w-full p-0 gap-0 overflow-hidden h-[90vh]">
+          <div className="flex items-center justify-between px-5 py-3 border-b bg-gradient-to-r from-brand-50 to-purple-50 shrink-0">
+            <div className="flex items-center gap-2 min-w-0">
+              <FileText className="w-4 h-4 text-brand-600 shrink-0" />
+              <span className="font-display font-bold text-sm text-brand-800 truncate">{pdfChapter?.title}</span>
+            </div>
+            {pdfUrl && (
+              <a href={pdfUrl} download={`${pdfChapter?.title}.pdf`} className="mr-8">
+                <Button variant="outline" size="sm" className="h-7 text-xs gap-1 border-brand-200 text-brand-700 hover:bg-brand-50">
+                  <Download className="w-3 h-3" /> Download
+                </Button>
+              </a>
+            )}
+          </div>
+          <div className="flex-1 bg-gray-100 h-[calc(90vh-53px)]">
+            {pdfLoading && (
+              <div className="flex flex-col items-center justify-center h-full gap-3">
+                <div className="w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
+                <span className="text-sm text-gray-500 font-display">Loading PDF…</span>
+              </div>
+            )}
+            {pdfUrl && !pdfLoading && (
+              <iframe
+                src={pdfUrl}
+                className="w-full h-full border-0"
+                title={pdfChapter?.title ?? 'Chapter PDF'}
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

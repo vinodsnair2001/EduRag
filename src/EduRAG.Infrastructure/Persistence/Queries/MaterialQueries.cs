@@ -33,4 +33,15 @@ public class MaterialQueries : IMaterialQueries
             ORDER BY ""UploadedAt"" DESC";
         return await _db.QueryAsync<MaterialDto>(sql, new { subjectId });
     }
+
+    public async Task<MaterialFileDto?> GetFileByChapterIdAsync(int chapterId)
+    {
+        const string sql = @"
+            SELECT ""Id"", ""StoredFilePath"", ""OriginalFileName""
+            FROM ""StudyMaterials""
+            WHERE ""ChapterId"" = @chapterId
+            ORDER BY ""UploadedAt"" DESC
+            LIMIT 1";
+        return await _db.QueryFirstOrDefaultAsync<MaterialFileDto>(sql, new { chapterId });
+    }
 }

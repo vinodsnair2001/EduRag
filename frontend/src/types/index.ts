@@ -31,6 +31,7 @@ export interface ChapterDto {
   orderIndex: number
   subjectId: number
   isActive: boolean
+  hasPdf: boolean
 }
 
 export interface MaterialDto {

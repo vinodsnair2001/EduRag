@@ -1,7 +1,7 @@
 ---
 tags: [user-guide, student, chat, practice-questions, rag]
 created: 2026-06-18
-updated: 2026-06-18
+updated: 2026-06-19
 type: user
 status: stable
 aliases: [Student Guide, Student Manual]
@@ -25,9 +25,24 @@ aliases: [Student Guide, Student Manual]
 2. Click your class (e.g., "Class 7")
 3. You will see the subjects available
 4. Click the subject you want to study (e.g., "Science")
-5. The chat window opens, scoped to that class and subject
+5. You will see the chapters for that subject — tick the chapters you want to study (or click **Select All**)
+6. Click **Start Learning** — the chat window opens scoped to your selected chapters
 
-> You can always click **Back** to choose a different subject.
+> You can always click **Back** to choose a different subject or class.
+
+---
+
+## Previewing a Chapter PDF
+
+Before you start a chat session you can preview the PDF uploaded for any chapter.
+
+1. On the chapter selection screen, look for the **document icon** (📄) on the right side of a chapter row
+2. The icon only appears when your teacher has uploaded a PDF for that chapter
+3. Click the icon — a PDF viewer opens on screen
+4. Read the chapter content, scroll through pages, or click **Download** to save it locally
+5. Close the viewer with the **✕** button in the top-right corner and then pick your chapters as normal
+
+> **Tip:** Use this to quickly check which chapters contain the topic you want to ask about before selecting them for your session.
 
 ---
 

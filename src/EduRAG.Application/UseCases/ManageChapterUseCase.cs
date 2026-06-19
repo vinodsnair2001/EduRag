@@ -31,5 +31,5 @@ public class ManageChapterUseCase
         return Result<bool>.Success(true);
     }
 
-    private static ChapterDto Map(Chapter c) => new(c.Id, c.Title, c.OrderIndex, c.SubjectId, c.IsActive);
+    private static ChapterDto Map(Chapter c) => new(c.Id, c.Title, c.OrderIndex, c.SubjectId, c.IsActive, HasPdf: false);
 }

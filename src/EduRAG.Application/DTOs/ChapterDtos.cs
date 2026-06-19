@@ -11,4 +11,4 @@ public record UpdateChapterRequest(
     int OrderIndex,
     bool IsActive);
 
-public record ChapterDto(int Id, string Title, int OrderIndex, int SubjectId, bool IsActive);
+public record ChapterDto(int Id, string Title, int OrderIndex, int SubjectId, bool IsActive, bool HasPdf);

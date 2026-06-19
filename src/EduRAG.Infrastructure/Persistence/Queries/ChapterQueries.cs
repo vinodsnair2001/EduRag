@@ -13,10 +13,11 @@ public class ChapterQueries : IChapterQueries
     public async Task<IEnumerable<ChapterDto>> GetBySubjectIdAsync(int subjectId)
     {
         const string sql = @"
-            SELECT ""Id"", ""Title"", ""OrderIndex"", ""SubjectId"", ""IsActive""
-            FROM ""Chapters""
-            WHERE ""SubjectId"" = @subjectId AND ""IsActive"" = TRUE
-            ORDER BY ""OrderIndex"", ""Title""";
+            SELECT c.""Id"", c.""Title"", c.""OrderIndex"", c.""SubjectId"", c.""IsActive"",
+                   EXISTS (SELECT 1 FROM ""StudyMaterials"" sm WHERE sm.""ChapterId"" = c.""Id"") AS ""HasPdf""
+            FROM ""Chapters"" c
+            WHERE c.""SubjectId"" = @subjectId AND c.""IsActive"" = TRUE
+            ORDER BY c.""OrderIndex"", c.""Title""";
         return await _db.QueryAsync<ChapterDto>(sql, new { subjectId });
     }
 }
