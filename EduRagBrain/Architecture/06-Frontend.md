@@ -199,7 +199,7 @@ const sendMessage = async (userText: string) => {
 | Component | Path | Description |
 |-----------|------|-------------|
 | `<LoginPage />` | auth/pages/LoginPage.tsx | Single page, tab for Admin vs Student |
-| `<ClassSubjectSelectPage />` | student/pages/ClassSubjectSelectPage.tsx | Grid of colourful class cards |
+| `<ClassSubjectSelectPage />` | student/pages/ClassSubjectSelectPage.tsx | Three-step: class cards → subject cards → chapter checkboxes |
 | `<ChatPage />` | student/pages/ChatPage.tsx | SSE stream chat + practice mode |
 | `<ChatWindow />` | student/components/ChatWindow.tsx | Scrollable message list (markdown) |
 | `<ChatInput />` | student/components/ChatInput.tsx | Textarea + send button + "Quiz me" shortcut |
@@ -220,11 +220,12 @@ const sendMessage = async (userText: string) => {
 
 ## Student UX Principles
 
-1. **Class selection page** — Large rounded cards with subject emoji icons and gradient backgrounds per grade band (K-4: warm, 5-8: cool, 9-12: dark)
-2. **Chat bubbles** — Student messages: violet right-aligned bubble. AI messages: white card with avatar, soft shadow
-3. **Practice cards** — Card flip animation on answer reveal; green tick / red cross icon; star rating on score
-4. **Loading states** — Animated typing indicator (three bouncing dots) while AI streams
-5. **Empty states** — Friendly illustrated placeholder when no study materials uploaded yet
+1. **Three-step selector** — Step 1: class cards (gradient per grade). Step 2: subject emoji cards. Step 3: chapter checkboxes with "Select all" toggle + sticky Start button showing `N chapters selected`.
+2. **Chapter scoping** — If a subject has no chapters defined, step 3 offers a direct "Start without chapter filter" fallback. Selected chapter titles are shown in the chat header and welcome message.
+3. **Chat bubbles** — Student messages: violet right-aligned bubble. AI messages: white card with avatar, soft shadow
+4. **Practice cards** — Card flip animation on answer reveal; green tick / red cross icon; star rating on score
+5. **Loading states** — Animated typing indicator (three bouncing dots) while AI streams
+6. **Empty states** — Friendly illustrated placeholder when no study materials uploaded yet
 
 ---
 

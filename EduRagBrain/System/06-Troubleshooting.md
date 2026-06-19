@@ -76,6 +76,39 @@ o.UseNpgsql(cs, npg => npg.UseVector())   // ← required
 mb.HasPostgresExtension("vector");   // ← required
 ```
 
+### Error: `PostgresException: 22000: expected 1024 dimensions, not 768` (EF Core column type mismatch)
+
+This error fires in `VectorizationWorker` (EF Core INSERT path) when the `AI:Provider` is `MistralAI` (1024-dim embeddings) but the EF Core entity configuration still declares `HasColumnType("vector(768)")`.
+
+**Root cause:** `MaterialChunkConfiguration.HasColumnType` was hardcoded to `vector(768)`. Npgsql uses this annotation when generating INSERT parameters, causing dimension mismatches when the actual DB column is `vector(1024)`.
+
+**Fix (applied in branch `feature-Vectorisation-based-on-class-subject-chapter`):**
+
+`AppDbContext` now injects `IConfiguration` and overrides the column type in `OnModelCreating` after `ApplyConfigurationsFromAssembly`:
+
+```csharp
+mb.Entity<MaterialChunk>()
+  .Property(x => x.Embedding)
+  .HasColumnType($"vector({_embeddingDimensions})");  // _embeddingDimensions from AI:EmbeddingDimensions
+```
+
+This ensures the EF model always matches the configured provider dimension without any code change when switching between Ollama (768) and MistralAI (1024).
+
+**If the error persists after the fix:** verify the DB column type matches `AI:EmbeddingDimensions`:
+
+```sql
+SELECT udt_name FROM information_schema.columns
+WHERE table_name = 'MaterialChunks' AND column_name = 'Embedding';
+-- should show: vector
+-- check dimension:
+SELECT typmod FROM pg_attribute a
+JOIN pg_class c ON a.attrelid = c.oid
+WHERE c.relname = 'MaterialChunks' AND a.attname = 'Embedding';
+-- typmod - 4 = dimension (e.g. 1028 - 4 = 1024)
+```
+
+If the column dimension does not match the config, run the appropriate SQL migration script in `scripts/`.
+
 ### Error: `PostgresException: 22000: expected 768 dimensions, not 1536` (locale bug — most common)
 
 If the diag endpoint shows `embedding: ok (768 dims)` but the vector search still fails with `expected 768 dimensions, not 1536`, this is a **culture/locale bug**, not a real dimension mismatch. `768 × 2 = 1536` is the giveaway.

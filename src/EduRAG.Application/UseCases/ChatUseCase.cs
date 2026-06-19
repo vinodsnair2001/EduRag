@@ -34,9 +34,17 @@ public class ChatUseCase
         _logger         = logger;
     }
 
-    public async Task<Guid> CreateSessionAsync(Guid userId, int classId, int subjectId)
+    public async Task<Guid> CreateSessionAsync(Guid userId, int classId, int subjectId, int[] chapterIds)
     {
-        var session = new ChatSession { UserId = userId, ClassId = classId, SubjectId = subjectId };
+        var session = new ChatSession
+        {
+            UserId             = userId,
+            ClassId            = classId,
+            SubjectId          = subjectId,
+            SelectedChapterIds = chapterIds.Length > 0
+                ? JsonSerializer.Serialize(chapterIds)
+                : null,
+        };
         var created = await _chatRepo.CreateSessionAsync(session);
         return created.Id;
     }
@@ -65,8 +73,13 @@ public class ChatUseCase
         _logger.LogInformation("[Chat] Step 3: GetEmbedding");
         var embedding = await _ai.GetEmbeddingAsync(userContent, ct);
 
-        _logger.LogInformation("[Chat] Step 4: VectorSearch classId={ClassId} subjectId={SubjectId}", session.ClassId, session.SubjectId);
-        var chunks = (await _vectorSearch.SearchAsync(embedding, session.ClassId, session.SubjectId)).ToList();
+        var chapterIds = string.IsNullOrEmpty(session.SelectedChapterIds)
+            ? Array.Empty<int>()
+            : JsonSerializer.Deserialize<int[]>(session.SelectedChapterIds) ?? Array.Empty<int>();
+
+        _logger.LogInformation("[Chat] Step 4: VectorSearch classId={ClassId} subjectId={SubjectId} chapters={Chapters}",
+            session.ClassId, session.SubjectId, session.SelectedChapterIds ?? "all");
+        var chunks = (await _vectorSearch.SearchAsync(embedding, session.ClassId, session.SubjectId, chapterIds)).ToList();
         _logger.LogInformation("[Chat] Step 4 done: {Count} chunks found", chunks.Count);
 
         _logger.LogInformation("[Chat] Step 5: GetChatHistory");

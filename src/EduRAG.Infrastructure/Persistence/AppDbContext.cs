@@ -1,11 +1,18 @@
 using EduRAG.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 
 namespace EduRAG.Infrastructure.Persistence;
 
 public class AppDbContext : DbContext
 {
-    public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
+    private readonly int _embeddingDimensions;
+
+    public AppDbContext(DbContextOptions<AppDbContext> options, IConfiguration config)
+        : base(options)
+    {
+        _embeddingDimensions = config.GetValue<int>("AI:EmbeddingDimensions", 768);
+    }
 
     public DbSet<Class>          Classes        => Set<Class>();
     public DbSet<Subject>        Subjects       => Set<Subject>();
@@ -20,5 +27,11 @@ public class AppDbContext : DbContext
     {
         mb.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
         mb.HasPostgresExtension("vector");
+
+        // Override the vector column type after applying static configurations so the
+        // dimension always matches AI:EmbeddingDimensions (768 = Ollama, 1024 = MistralAI).
+        mb.Entity<MaterialChunk>()
+          .Property(x => x.Embedding)
+          .HasColumnType($"vector({_embeddingDimensions})");
     }
 }

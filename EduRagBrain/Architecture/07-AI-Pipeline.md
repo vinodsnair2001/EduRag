@@ -74,11 +74,14 @@ ChatUseCase
   4. VectorSearchService.SearchAsync(embedding, classId, subjectId, topK=5)
      └── Dapper query:
          SELECT Id, Content, PageNumber,
-                1 - (Embedding <=> @vector::vector) AS Score
+                1 - (Embedding <=> @vector::vector(768)) AS Score
          FROM "MaterialChunks"
          WHERE "ClassId" = @c AND "SubjectId" = @s
-         ORDER BY Embedding <=> @vector::vector
+           [AND "ChapterId" = ANY(@chapterIds)  -- when session.SelectedChapterIds is non-empty]
+         ORDER BY Embedding <=> @vector::vector(768)
          LIMIT 5
+     -- chapterIds deserialized from ChatSession.SelectedChapterIds (JSON "[1,2,3]")
+     -- Empty/null SelectedChapterIds → no chapter filter (all subject-level chunks included
   5. Build system prompt (inject top-5 chunks as CONTEXT)
   6. ChatQueries.GetLastNMessages(sessionId, 10) → history
   7. OllamaAIService.StreamChatAsync(prompt, history, question)

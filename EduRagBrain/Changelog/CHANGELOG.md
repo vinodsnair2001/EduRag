@@ -15,6 +15,94 @@ All changes to the EduRAG codebase and documentation are recorded here.
 
 ---
 
+## 2026-06-19 — B-004: EF Core Vector Dimension Hardcode + Missing MistralAI Provider
+
+**Type:** Fix
+**Branch:** `feature-Vectorisation-based-on-class-subject-chapter`
+**Affected:** Infrastructure
+
+### What changed
+
+**Root cause:** `MaterialChunkConfiguration` had `HasColumnType("vector(768)")` hardcoded. When the active AI provider is MistralAI (1024-dim embeddings), the DB column is `vector(1024)` but EF Core was generating INSERT parameters typed as `vector(768)`, causing PostgreSQL to reject with `expected 1024 dimensions, not 768` on every VectorizationWorker bulk-insert.
+
+Second issue: `ServiceRegistration.cs` always registered `OllamaAIService` regardless of the `AI:Provider` config value. `MistralAIService.cs` was missing from this branch (it exists only on `main`).
+
+**Fixes applied:**
+
+1. `AppDbContext` now accepts `IConfiguration` in its constructor and overrides the `Embedding` column type in `OnModelCreating` after `ApplyConfigurationsFromAssembly`, using `AI:EmbeddingDimensions` (default 768). This means the column type always matches the configured provider dimension — no code change required when switching providers.
+
+2. `AppDbContextFactory` updated to build `IConfiguration` from appsettings files and pass it to `AppDbContext`, keeping design-time migration tools working.
+
+3. `MistralAIService.cs` ported from `main` — implements `IAIService` using `mistral-embed` (1024-dim) for embeddings and `mistral-large-latest` for streaming chat via the Mistral REST API.
+
+4. `ServiceRegistration.cs` updated with conditional AI provider registration: reads `AI:Provider` at startup and registers either `MistralAIService` or `OllamaAIService`.
+
+5. `EduRAG.Infrastructure.csproj` — added `Microsoft.Extensions.Configuration.Json` package (required by `AppDbContextFactory` to load appsettings at design time).
+
+### Files changed
+
+| File | Change |
+|------|--------|
+| `EduRAG.Infrastructure/Persistence/AppDbContext.cs` | Accept `IConfiguration`; override vector column type dynamically |
+| `EduRAG.Infrastructure/Persistence/AppDbContextFactory.cs` | Build config from appsettings; pass to context |
+| `EduRAG.Infrastructure/Services/MistralAIService.cs` | New — Mistral REST client for embeddings + streaming chat |
+| `EduRAG.Infrastructure/ServiceRegistration.cs` | Conditional Ollama / MistralAI registration |
+| `EduRAG.Infrastructure/EduRAG.Infrastructure.csproj` | + `Microsoft.Extensions.Configuration.Json` |
+
+---
+
+## 2026-06-19 — F-005: Chapter-Based Vectorisation & Student Chapter Selection
+
+**Type:** Feature
+**Branch:** `feature-Vectorisation-based-on-class-subject-chapter`
+**Affected:** Backend (Domain, Application, Infrastructure, API), Frontend (Student portal, Admin portal), Docs
+
+### What changed
+
+**Backend**
+- `ChatSession` entity — added `SelectedChapterIds string?` (JSON int array persisted to DB)
+- `CreateSessionRequest` DTO — added `ChapterIds int[]` field
+- `IVectorSearchService.SearchAsync` — added `int[]? chapterIds` parameter
+- `VectorSearchService` — SQL WHERE clause dynamically adds `AND "ChapterId" = ANY(@chapterIds)` when chapter IDs are present
+- `ChatUseCase.CreateSessionAsync` — serializes chapter IDs into `SelectedChapterIds`
+- `ChatUseCase.SendMessageAsync` — deserializes chapter IDs from session and passes to vector search
+- `ChatController` — forwards `ChapterIds` from `CreateSessionRequest` to use case
+- New EF migration: `20260619204900_AddChapterIdsToChatSessions` — adds `SelectedChapterIds TEXT NULL` to `ChatSessions`; adds composite index `(ClassId, SubjectId, ChapterId)` on `MaterialChunks`
+
+**Frontend — Student portal**
+- `ClassSubjectSelectPage` — redesigned as a three-step wizard: (1) class cards, (2) subject cards, (3) chapter checkboxes with "Select All" toggle and sticky "Start N chapters" button
+- `ChatPage` — reads `chapterIds` and `chapterTitles` from location state; passes `chapterIds` to `POST /chat/sessions`; shows selected chapter names in the header and welcome message
+
+**Frontend — Admin portal**
+- `MaterialListPage` — added chapter selector (third dropdown, optional) that fetches chapters when a subject is selected; passes `chapterId` to upload form; shows "Chapter assigned" / "Subject-level" label per material row; advisory warning when no chapter selected
+
+**Docs**
+- `EduRagBrain/Backlog/BACKLOG.md` — created; F-005 added with full task checklist
+- `EduRagBrain/System/01-Database-Schema.md` — updated `ChatSessions` DDL; added new composite index
+- `EduRagBrain/System/02-API-Reference.md` — updated `POST /chat/sessions` with `chapterIds` field
+- `EduRagBrain/Architecture/07-AI-Pipeline.md` — updated vector search SQL to show chapter filter
+- `EduRagBrain/Architecture/02-Domain-Layer.md` — updated `ChatSession` entity with `SelectedChapterIds`
+- `EduRagBrain/Architecture/06-Frontend.md` — updated student UX principles and component map
+- `EduRagBrain/User/01-Admin-Guide.md` — updated upload instructions; chapter vs. subject-level distinction
+
+### Files changed
+
+| File | Change |
+|------|--------|
+| `EduRAG.Domain/Entities/ChatSession.cs` | + `SelectedChapterIds` |
+| `EduRAG.Application/DTOs/ChatDtos.cs` | `CreateSessionRequest` + `ChapterIds` |
+| `EduRAG.Application/Interfaces/IVectorSearchService.cs` | + `chapterIds` param |
+| `EduRAG.Application/UseCases/ChatUseCase.cs` | chapter IDs end-to-end |
+| `EduRAG.Infrastructure/Services/VectorSearchService.cs` | chapter SQL filter |
+| `EduRAG.Infrastructure/Migrations/20260619204900_AddChapterIdsToChatSessions.cs` | new migration |
+| `EduRAG.Infrastructure/Migrations/AppDbContextModelSnapshot.cs` | snapshot updated |
+| `EduRAG.API/Controllers/ChatController.cs` | forward `ChapterIds` |
+| `frontend/src/admin/pages/MaterialListPage.tsx` | chapter dropdown |
+| `frontend/src/student/pages/ClassSubjectSelectPage.tsx` | three-step wizard |
+| `frontend/src/student/pages/ChatPage.tsx` | chapter IDs to session + header |
+
+---
+
 ## 2026-06-18 — Initial Knowledge Base Creation
 
 **Type:** Docs

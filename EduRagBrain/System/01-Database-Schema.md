@@ -118,18 +118,22 @@ CREATE INDEX idx_chunks_embedding
 
 -- Composite index: pre-filter by class+subject before vector search
 CREATE INDEX idx_chunks_class_subject ON "MaterialChunks" ("ClassId", "SubjectId");
+
+-- Composite index: chapter-filtered sessions pre-filter (added in migration AddChapterIdsToChatSessions)
+CREATE INDEX idx_chunks_class_subject_chapter ON "MaterialChunks" ("ClassId", "SubjectId", "ChapterId");
 ```
 
 ### ChatSessions
 
 ```sql
 CREATE TABLE "ChatSessions" (
-    "Id"        UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    "UserId"    UUID NOT NULL REFERENCES "AppUsers"("Id"),
-    "ClassId"   INT NOT NULL REFERENCES "Classes"("Id"),
-    "SubjectId" INT NOT NULL REFERENCES "Subjects"("Id"),
-    "StartedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    "EndedAt"   TIMESTAMPTZ NULL
+    "Id"                 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    "UserId"             UUID NOT NULL REFERENCES "AppUsers"("Id"),
+    "ClassId"            INT NOT NULL REFERENCES "Classes"("Id"),
+    "SubjectId"          INT NOT NULL REFERENCES "Subjects"("Id"),
+    "SelectedChapterIds" TEXT NULL,    -- JSON int array e.g. "[1,2,3]"; NULL/empty = no chapter filter
+    "StartedAt"          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    "EndedAt"            TIMESTAMPTZ NULL
 );
 ```
 
@@ -188,7 +192,7 @@ AppUsers ──(1:N)── ChatSessions ──(1:N)── ChatMessages
 | Concern | Solution |
 |---------|---------|
 | Vector search speed | HNSW index with `m=16, ef_construction=64` |
-| Filtered vector search | Composite index on `(ClassId, SubjectId)` pre-filters rows |
+| Filtered vector search | Composite index on `(ClassId, SubjectId)` pre-filters rows; `(ClassId, SubjectId, ChapterId)` for chapter-scoped sessions |
 | Read query performance | Dapper (no change tracking) for all SELECT |
 | Write performance | EF Core only for INSERT/UPDATE/DELETE |
 | Duplicate PDF uploads | SHA-256 `ContentHash` unique guard in application layer |

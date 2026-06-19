@@ -66,6 +66,9 @@ All documentation lives in `EduRagBrain/`. Open it as an Obsidian vault.
 | `string.Join(",", floats)` for vector literal | Format with `CultureInfo.InvariantCulture` (`f.ToString("R", InvariantCulture)`) — comma-decimal locales render `0,5` and silently double 768 → 1536 dims |
 | `ChunkSearchResult` wrong constructor order | Must match SQL column order (Dapper is positional): `(Guid ChunkId, string Content, int PageNumber, double Score)` |
 | No `PendingMaterialsRequeueService` | Channel is in-memory; Pending/Failed materials are silently lost on API restart without a startup re-queue |
+| `HasColumnType("vector(768)")` hardcoded in entity config | `AppDbContext.OnModelCreating` must override with `$"vector({_embeddingDimensions})"` from `AI:EmbeddingDimensions` config — hardcoding breaks when switching AI providers |
+| `AppDbContextFactory` calling `new AppDbContext(opts)` | Constructor now requires `IConfiguration` — factory must build config from appsettings and pass it: `new AppDbContext(opts, config)` |
+| Always registering `OllamaAIService` in DI | Read `AI:Provider` in `ServiceRegistration` and conditionally register `OllamaAIService` or `MistralAIService` |
 
 ## File Layout
 

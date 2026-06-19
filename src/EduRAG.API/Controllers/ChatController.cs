@@ -25,7 +25,7 @@ public class ChatController : ControllerBase
     public async Task<IActionResult> CreateSession([FromBody] CreateSessionRequest req)
     {
         var userId    = User.GetUserId();
-        var sessionId = await _chat.CreateSessionAsync(userId, req.ClassId, req.SubjectId);
+        var sessionId = await _chat.CreateSessionAsync(userId, req.ClassId, req.SubjectId, req.ChapterIds ?? Array.Empty<int>());
         return Ok(new CreateSessionResponse(sessionId));
     }
 
@@ -45,7 +45,7 @@ public class ChatController : ControllerBase
             steps.Add($"embedding: ok ({emb.Length} dims)");
 
             steps.Add("vector search: start");
-            var chunks = (await vs.SearchAsync(emb, 1, 1)).ToList();
+            var chunks = (await vs.SearchAsync(emb, 1, 1, null)).ToList();
             steps.Add($"vector search: ok ({chunks.Count} chunks)");
         }
         catch (Exception ex)

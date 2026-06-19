@@ -10,7 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import StatusBadge from '@/shared/components/StatusBadge'
 import { ArrowLeft, UploadCloud, Trash2, FileText, RefreshCw } from 'lucide-react'
 import toast from 'react-hot-toast'
-import type { MaterialDto, ClassDto, SubjectDto } from '@/types'
+import type { MaterialDto, ClassDto, SubjectDto, ChapterDto } from '@/types'
 
 export default function MaterialListPage() {
   const navigate = useNavigate()
@@ -20,9 +20,11 @@ export default function MaterialListPage() {
   const [uploading, setUploading] = useState(false)
   const [selectedClass, setSelectedClass] = useState(searchParams.get('classId') ?? '')
   const [selectedSubject, setSelectedSubject] = useState(searchParams.get('subjectId') ?? '')
+  const [selectedChapter, setSelectedChapter] = useState('')
 
   const { data: classes }   = useQuery<ClassDto[]>({ queryKey: ['admin-classes'], queryFn: () => api.get('/admin/classes').then(r => r.data) })
   const { data: subjects }  = useQuery<SubjectDto[]>({ queryKey: ['admin-subjects', selectedClass], queryFn: () => api.get(`/admin/classes/${selectedClass}/subjects`).then(r => r.data), enabled: !!selectedClass })
+  const { data: chapters }  = useQuery<ChapterDto[]>({ queryKey: ['admin-chapters', selectedSubject], queryFn: () => api.get(`/admin/subjects/${selectedSubject}/chapters`).then(r => r.data), enabled: !!selectedSubject })
   const { data: materials, isLoading, refetch } = useQuery<MaterialDto[]>({ queryKey: ['admin-materials'], queryFn: () => api.get('/admin/materials').then(r => r.data), refetchInterval: 5000 })
 
   const del = useMutation({
@@ -39,6 +41,7 @@ export default function MaterialListPage() {
     fd.append('file', file)
     fd.append('classId', selectedClass)
     fd.append('subjectId', selectedSubject)
+    if (selectedChapter) fd.append('chapterId', selectedChapter)
 
     setUploading(true)
     setUploadProgress(0)
@@ -55,7 +58,7 @@ export default function MaterialListPage() {
       setUploading(false)
       setUploadProgress(0)
     }
-  }, [selectedClass, selectedSubject, qc])
+  }, [selectedClass, selectedSubject, selectedChapter, qc])
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop, accept: { 'application/pdf': ['.pdf'] }, multiple: false })
 
@@ -74,16 +77,39 @@ export default function MaterialListPage() {
         <Card className="mb-6">
           <CardHeader><CardTitle className="text-base">Upload PDF</CardTitle></CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
-              <select className="h-9 rounded-md border border-input px-3 text-sm bg-background" value={selectedClass} onChange={e => { setSelectedClass(e.target.value); setSelectedSubject('') }}>
+            <div className="grid grid-cols-3 gap-3">
+              <select
+                className="h-9 rounded-md border border-input px-3 text-sm bg-background"
+                value={selectedClass}
+                onChange={e => { setSelectedClass(e.target.value); setSelectedSubject(''); setSelectedChapter('') }}
+              >
                 <option value="">Select Class…</option>
                 {classes?.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
-              <select className="h-9 rounded-md border border-input px-3 text-sm bg-background" value={selectedSubject} onChange={e => setSelectedSubject(e.target.value)} disabled={!selectedClass}>
+              <select
+                className="h-9 rounded-md border border-input px-3 text-sm bg-background"
+                value={selectedSubject}
+                onChange={e => { setSelectedSubject(e.target.value); setSelectedChapter('') }}
+                disabled={!selectedClass}
+              >
                 <option value="">Select Subject…</option>
                 {subjects?.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
+              <select
+                className="h-9 rounded-md border border-input px-3 text-sm bg-background"
+                value={selectedChapter}
+                onChange={e => setSelectedChapter(e.target.value)}
+                disabled={!selectedSubject}
+              >
+                <option value="">No Chapter (subject-level)</option>
+                {chapters?.map(ch => <option key={ch.id} value={ch.id}>{ch.title}</option>)}
+              </select>
             </div>
+            {selectedSubject && !selectedChapter && (
+              <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded px-3 py-1.5">
+                No chapter selected — this PDF will be uploaded at the subject level and won't appear in chapter-scoped student sessions.
+              </p>
+            )}
             <div
               {...getRootProps()}
               className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors ${isDragActive ? 'border-brand-500 bg-brand-50' : 'border-gray-200 hover:border-brand-300 hover:bg-brand-50/50'}`}
@@ -111,7 +137,10 @@ export default function MaterialListPage() {
                         <FileText className="w-5 h-5 text-gray-400 shrink-0" />
                         <div className="flex-1 min-w-0">
                           <div className="text-sm font-medium truncate">{m.originalFileName}</div>
-                          <div className="text-xs text-gray-400">{formatSize(m.fileSizeBytes)} · {new Date(m.uploadedAt).toLocaleDateString()}</div>
+                          <div className="text-xs text-gray-400">
+                            {formatSize(m.fileSizeBytes)} · {new Date(m.uploadedAt).toLocaleDateString()}
+                            {m.chapterId ? <span className="ml-2 text-violet-500">· Chapter assigned</span> : <span className="ml-2 text-gray-300">· Subject-level</span>}
+                          </div>
                         </div>
                         <StatusBadge status={m.status} />
                         <Button variant="ghost" size="icon" className="text-destructive shrink-0" onClick={() => del.mutate(m.id)}>
