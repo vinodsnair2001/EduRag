@@ -10,27 +10,32 @@ namespace EduRAG.API.Controllers;
 [ApiController, Route("api/admin"), Authorize(Roles = "Admin")]
 public class AdminController : ControllerBase
 {
-    private readonly ManageClassUseCase   _classes;
-    private readonly ManageSubjectUseCase _subjects;
-    private readonly ManageChapterUseCase _chapters;
+    private readonly ManageClassUseCase    _classes;
+    private readonly ManageSubjectUseCase  _subjects;
+    private readonly ManageChapterUseCase  _chapters;
+    private readonly ManageStudentUseCase  _students;
     private readonly UploadMaterialUseCase _upload;
-    private readonly IClassQueries        _classQ;
-    private readonly ISubjectQueries      _subjectQ;
-    private readonly IChapterQueries      _chapterQ;
-    private readonly IMaterialQueries     _materialQ;
-    private readonly IUserQueries         _userQ;
+    private readonly IClassQueries               _classQ;
+    private readonly ISubjectQueries             _subjectQ;
+    private readonly IChapterQueries             _chapterQ;
+    private readonly IMaterialQueries            _materialQ;
+    private readonly IUserQueries                _userQ;
+    private readonly IStudentPermissionQueries   _permQ;
 
     public AdminController(
         ManageClassUseCase classes, ManageSubjectUseCase subjects,
-        ManageChapterUseCase chapters, UploadMaterialUseCase upload,
+        ManageChapterUseCase chapters, ManageStudentUseCase students,
+        UploadMaterialUseCase upload,
         IClassQueries classQ, ISubjectQueries subjectQ,
-        IChapterQueries chapterQ, IMaterialQueries materialQ, IUserQueries userQ)
+        IChapterQueries chapterQ, IMaterialQueries materialQ,
+        IUserQueries userQ, IStudentPermissionQueries permQ)
     {
         _classes   = classes;   _subjects  = subjects;
-        _chapters  = chapters;  _upload    = upload;
+        _chapters  = chapters;  _students  = students;
+        _upload    = upload;
         _classQ    = classQ;    _subjectQ  = subjectQ;
         _chapterQ  = chapterQ;  _materialQ = materialQ;
-        _userQ     = userQ;
+        _userQ     = userQ;     _permQ     = permQ;
     }
 
     // ── Classes ────────────────────────────────────────────────────────────
@@ -140,4 +145,38 @@ public class AdminController : ControllerBase
     [HttpGet("users")]
     public async Task<IActionResult> GetUsers()
         => Ok(await _userQ.GetAllAsync());
+
+    // ── Students ───────────────────────────────────────────────────────────
+    [HttpPost("students")]
+    public async Task<IActionResult> CreateStudent([FromBody] CreateStudentRequest req)
+    {
+        var r = await _students.CreateStudentAsync(req);
+        return r.IsSuccess ? Ok(r.Value) : BadRequest(new { message = r.Error });
+    }
+
+    [HttpPut("students/{studentId:guid}")]
+    public async Task<IActionResult> UpdateStudent(Guid studentId, [FromBody] UpdateStudentRequest req)
+    {
+        var r = await _students.UpdateStudentAsync(studentId, req);
+        return r.IsSuccess ? Ok(r.Value) : BadRequest(new { message = r.Error });
+    }
+
+    [HttpDelete("students/{studentId:guid}")]
+    public async Task<IActionResult> DeactivateStudent(Guid studentId)
+    {
+        var r = await _students.DeactivateStudentAsync(studentId);
+        return r.IsSuccess ? NoContent() : BadRequest(new { message = r.Error });
+    }
+
+    [HttpGet("students/{studentId:guid}/permissions")]
+    public async Task<IActionResult> GetStudentPermissions(Guid studentId)
+        => Ok(await _permQ.GetByStudentIdAsync(studentId));
+
+    [HttpPut("students/{studentId:guid}/permissions")]
+    public async Task<IActionResult> SetStudentPermissions(
+        Guid studentId, [FromBody] SetStudentPermissionsRequest req)
+    {
+        var r = await _students.SetPermissionsAsync(studentId, req);
+        return r.IsSuccess ? NoContent() : BadRequest(new { message = r.Error });
+    }
 }

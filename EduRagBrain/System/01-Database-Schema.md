@@ -1,7 +1,7 @@
 ---
 tags: [system, database, postgresql, pgvector, schema, ddl]
 created: 2026-06-18
-updated: 2026-06-18
+updated: 2026-06-19
 type: system
 status: stable
 aliases: [Database Schema, DDL, PostgreSQL]
@@ -70,11 +70,30 @@ CREATE TABLE "AppUsers" (
     "FullName"     VARCHAR(200) NOT NULL,
     "PasswordHash" TEXT NOT NULL,           -- BCrypt, work factor 11
     "Role"         INT NOT NULL,            -- 0=Admin, 1=Student
+    "ClassId"      INT NULL REFERENCES "Classes"("Id") ON DELETE RESTRICT,
+    -- NULL for Admin users; required for Students
     "IsActive"     BOOLEAN NOT NULL DEFAULT TRUE,
     "CreatedAt"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     "LastLoginAt"  TIMESTAMPTZ NULL
 );
 ```
+
+### StudentPermissions
+
+```sql
+CREATE TABLE "StudentPermissions" (
+    "Id"        UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    "StudentId" UUID NOT NULL REFERENCES "AppUsers"("Id") ON DELETE CASCADE,
+    "SubjectId" INT  NOT NULL REFERENCES "Subjects"("Id")  ON DELETE CASCADE,
+    "GrantedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT uq_student_subject UNIQUE ("StudentId", "SubjectId")
+);
+
+CREATE INDEX idx_student_permissions_student ON "StudentPermissions" ("StudentId");
+```
+
+> Setting permissions replaces the full row-set for a student (DELETE + INSERT in a single transaction).
+> The unique constraint prevents duplicate grants.
 
 ### StudyMaterials
 
@@ -170,15 +189,14 @@ VALUES (
 
 ```
 Classes ──(1:N)── Subjects ──(1:N)── Chapters
-                │                         │
-                └──(1:N)── StudyMaterials ─┘
-                                │
-                           (1:N cascade)
-                                │
-                           MaterialChunks
-                           (vector(768))
-
-AppUsers ──(1:N)── ChatSessions ──(1:N)── ChatMessages
+    │                  │                  │
+    │ (AppUsers.ClassId)└──(1:N)── StudyMaterials ─┘
+    │                                      │
+AppUsers ──(1:N)── StudentPermissions ──► Subjects
+    │                               (1:N cascade on delete)
+    └──(1:N)── ChatSessions ──(1:N)── ChatMessages
+                                      MaterialChunks
+                                       (vector(768))
 ```
 
 ---

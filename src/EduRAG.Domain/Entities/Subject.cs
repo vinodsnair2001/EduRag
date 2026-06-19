@@ -9,6 +9,7 @@ public class Subject
     public bool     IsActive    { get; set; } = true;
     public DateTime CreatedAt   { get; set; } = DateTime.UtcNow;
     public Class                      Class     { get; set; } = null!;
-    public ICollection<Chapter>       Chapters  { get; set; } = new List<Chapter>();
-    public ICollection<StudyMaterial> Materials { get; set; } = new List<StudyMaterial>();
+    public ICollection<Chapter>           Chapters            { get; set; } = new List<Chapter>();
+    public ICollection<StudyMaterial>     Materials           { get; set; } = new List<StudyMaterial>();
+    public ICollection<StudentPermission> StudentPermissions  { get; set; } = new List<StudentPermission>();
 }

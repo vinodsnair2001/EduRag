@@ -51,5 +51,13 @@ public interface IUserRepository
     Task<AppUser>  CreateAsync(AppUser user);
     Task<AppUser?> GetByEmailAsync(string email);
     Task<AppUser?> GetByIdAsync(Guid id);
+    Task           UpdateAsync(AppUser user);
+    Task           DeleteAsync(Guid id);
     Task           UpdateLastLoginAsync(Guid id);
+}
+
+public interface IStudentPermissionRepository
+{
+    Task SetPermissionsAsync(Guid studentId, IEnumerable<int> subjectIds);
+    Task<IEnumerable<StudentPermission>> GetByStudentIdAsync(Guid studentId);
 }

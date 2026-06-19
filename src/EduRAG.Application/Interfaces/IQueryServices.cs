@@ -35,3 +35,10 @@ public interface IUserQueries
 {
     Task<IEnumerable<UserDto>> GetAllAsync();
 }
+
+public interface IStudentPermissionQueries
+{
+    Task<IEnumerable<StudentPermissionDto>> GetByStudentIdAsync(Guid studentId);
+    Task<StudentClassDto?>                  GetStudentClassAsync(Guid studentId);
+    Task<IEnumerable<StudentSubjectDto>>    GetPermittedSubjectsAsync(Guid studentId);
+}

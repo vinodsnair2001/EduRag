@@ -1,7 +1,7 @@
 ---
 tags: [architecture, domain, entities, enums]
 created: 2026-06-18
-updated: 2026-06-18
+updated: 2026-06-19
 type: architecture
 status: stable
 aliases: [Domain Layer, Entities]
@@ -23,15 +23,18 @@ aliases: [Domain Layer, Entities]
 
 ```
 Class (1) ──────────────────────────────── (many) Subject
-                                                      │
-                                                      ├── (many) Chapter
-                                                      │
-                                                      └── (many) StudyMaterial
-                                                                      │
-                                                                  (many) MaterialChunk
-                                                                         [vector(768)]
-
-AppUser ── (many) ChatSession ── (many) ChatMessage
+  │                                                   │
+  │ (FK on AppUser.ClassId)                           ├── (many) Chapter
+  │                                                   │
+AppUser ──────────────────────── (many) StudentPermission ──► Subject
+  │
+  └── (many) ChatSession ── (many) ChatMessage
+                                                      Subject
+                                                        │
+                                                        └── (many) StudyMaterial
+                                                                        │
+                                                                    (many) MaterialChunk
+                                                                           [vector(768)]
 ```
 
 ---
@@ -133,12 +136,33 @@ public class AppUser {
     public string    FullName     { get; set; }
     public string    PasswordHash { get; set; }   // BCrypt, work factor 11
     public UserRole  Role         { get; set; }
+    public int?      ClassId      { get; set; }   // null for Admin; FK → Class for Student
     public bool      IsActive     { get; set; }
     public DateTime  CreatedAt    { get; set; }
     public DateTime? LastLoginAt  { get; set; }
-    public ICollection<ChatSession> ChatSessions { get; set; }
+    public Class?    Class        { get; set; }
+    public ICollection<ChatSession>        ChatSessions       { get; set; }
+    public ICollection<StudentPermission>  SubjectPermissions { get; set; }
 }
 ```
+
+### StudentPermission
+
+```csharp
+// Join table: which subjects a student is allowed to access.
+// Admin manages these; student portal reads them to scope subject list.
+public class StudentPermission {
+    public Guid     Id        { get; set; }
+    public Guid     StudentId { get; set; }   // FK → AppUser (CASCADE DELETE)
+    public int      SubjectId { get; set; }   // FK → Subject (CASCADE DELETE)
+    public DateTime GrantedAt { get; set; }
+    public AppUser  Student   { get; set; }
+    public Subject  Subject   { get; set; }
+}
+```
+
+> Unique constraint on `(StudentId, SubjectId)` prevents duplicate grants.
+> Setting permissions replaces the full set — no partial update.
 
 ### ChatSession
 
