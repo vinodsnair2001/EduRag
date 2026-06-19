@@ -15,6 +15,74 @@ All changes to the EduRAG codebase and documentation are recorded here.
 
 ---
 
+## 2026-06-19 — B-006: Student Sees Empty Subject List After Admin Grants Permissions
+
+**Type:** Fix
+**Branch:** `feature-StudentSubjectPermission`
+**Affected:** Infrastructure (Dapper query), Docs
+
+### What changed
+
+`SubjectQueries.GetByClassIdForStudentAsync` contained a correlated subquery that used an unqualified `"Id"` column reference. Both `"Subjects"` (outer) and `"StudentPermissions"` (inner) have an `"Id"` column. PostgreSQL resolves unqualified names from the innermost scope first, so `"Id"` resolved to `StudentPermissions."Id"` (type `uuid`) instead of `Subjects."Id"` (type `int`). The implicit `int = uuid` comparison always evaluated to false, making `EXISTS` return nothing when any permission rows existed — so students with assigned permissions saw an empty subject list.
+
+The `NOT EXISTS` fallback (open access when no permissions exist) was correct, which is why students without any permissions could see all subjects while students with permissions could see nothing.
+
+**Fix:** Added table alias `s` to `"Subjects"` and qualified all column references in the correlated subquery with `s."Id"`.
+
+### Files changed
+
+| File | Change |
+|------|--------|
+| `EduRAG.Infrastructure/Persistence/Queries/SubjectQueries.cs` | Add alias `s` to outer `"Subjects"`; use `s."Id"` in correlated EXISTS |
+| `EduRagBrain/System/06-Troubleshooting.md` | New "Student Permission Issues" section with root cause, fix, and diagnosis SQL |
+| `CLAUDE.md` | New row in "Common Mistakes" table — unaliased outer table in correlated subquery |
+| `EduRagBrain/Backlog/BACKLOG.md` | B-006 row in Bug Fixes table; B-006 detail section |
+
+---
+
+## 2026-06-19 — F-006: Student Subject Permission Enforcement
+
+**Type:** Feature (activation of existing backend design)
+**Branch:** `feature-Vectorisation-based-on-class-subject-chapter`
+**Affected:** Application (Interfaces), Infrastructure (Queries), API (StudentController), Frontend (ClassSubjectSelectPage), Docs
+
+### What changed
+
+The student subject permission feature was designed and fully implemented in the backend (entities, DTOs, migrations, repositories, use cases, admin controller endpoints) but was disconnected from the frontend because the student-facing subjects endpoint was missing the permission-aware fallback query.
+
+**Root cause:** `ClassSubjectSelectPage.tsx` was calling `GET /student/my-subjects` which used `GetPermittedSubjectsAsync` — a query with no fallback for students with no permission rows. Students with no explicit grants saw an empty subject list instead of all subjects.
+
+**Fixes applied:**
+
+1. `ISubjectQueries` — added `GetByClassIdForStudentAsync(int classId, Guid studentId)`. Implements fallback: if student has no permission rows → all active subjects for the class; if any rows exist → only permitted subjects.
+
+2. `SubjectQueries.cs` — implemented the method with a single SQL using `NOT EXISTS` / `EXISTS` subquery pattern (no N+1).
+
+3. `StudentController.cs` — removed `GET /student/my-subjects`; added `GET /student/classes/{classId}/subjects` wired to `GetByClassIdForStudentAsync`.
+
+4. `ClassSubjectSelectPage.tsx` — redesigned from 3-step (class → subject → chapter) to 2-step (subject → chapter). Auto-loads the student's class via `GET /student/my-class`, then fetches permission-filtered subjects via the new endpoint. Uses `SubjectDto` (fields `id`/`name`) instead of the old `StudentSubjectDto` (fields `subjectId`/`subjectName`).
+
+### Permission behaviour
+
+| Scenario | Student sees |
+|----------|-------------|
+| No permissions configured | All active subjects in their class |
+| Permissions configured | Only the explicitly granted subjects |
+| Student has no class assigned | "No class assigned yet" message, cannot start session |
+
+### Files changed
+
+| File | Change |
+|------|--------|
+| `EduRAG.Application/Interfaces/IQueryServices.cs` | Add `GetByClassIdForStudentAsync` to `ISubjectQueries` |
+| `EduRAG.Infrastructure/Persistence/Queries/SubjectQueries.cs` | Implement `GetByClassIdForStudentAsync` with fallback SQL |
+| `EduRAG.API/Controllers/StudentController.cs` | Replace `my-subjects` with `classes/{classId}/subjects` |
+| `frontend/src/student/pages/ClassSubjectSelectPage.tsx` | 2-step flow; permission-filtered subjects endpoint |
+| `EduRagBrain/System/02-API-Reference.md` | Document new `/student/classes/{classId}/subjects` endpoint |
+| `EduRagBrain/User/01-Admin-Guide.md` | Document class requirement for student creation |
+
+---
+
 ## 2026-06-19 — B-005: EF Core Vector Dimension Hardcode + Missing MistralAI Provider
 
 **Type:** Fix

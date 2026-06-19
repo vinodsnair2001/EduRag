@@ -69,6 +69,7 @@ All documentation lives in `EduRagBrain/`. Open it as an Obsidian vault.
 | `HasColumnType("vector(768)")` hardcoded in entity config | `AppDbContext.OnModelCreating` must override with `$"vector({_embeddingDimensions})"` from `AI:EmbeddingDimensions` config — hardcoding breaks when switching AI providers |
 | `AppDbContextFactory` calling `new AppDbContext(opts)` | Constructor now requires `IConfiguration` — factory must build config from appsettings and pass it: `new AppDbContext(opts, config)` |
 | Always registering `OllamaAIService` in DI | Read `AI:Provider` in `ServiceRegistration` and conditionally register `OllamaAIService` or `MistralAIService` |
+| Unaliased outer table in correlated Dapper subquery | When the outer table and inner table share a column name (e.g. both have `"Id"`), PostgreSQL resolves the unqualified name from the inner scope — silently breaking the join. Always alias the outer table: `FROM "Subjects" s` and use `s."Id"` in the EXISTS subquery |
 
 ## File Layout
 

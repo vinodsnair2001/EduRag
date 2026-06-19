@@ -126,13 +126,16 @@ This cannot be undone. Students using this subject will see fewer (or no) contex
 2. Click **+ New User**
 3. Fill in: full name, email, password
 4. Set role to **Student**
-5. Click **Create**
+5. Select the student's **class** from the dropdown (required)
+6. Click **Create**
 
-Share the email and password with the student. They should change their password on first login.
+> Students must be assigned to a class. Without a class, the student portal shows "No class assigned yet" and they cannot start a session.
+
+Share the email and password with the student.
 
 ### Create Another Admin
 
-Same as above, but set role to **Admin**. Admins can manage all classes and all users.
+Same as above, but set role to **Admin** (no class required).
 
 ### Edit a Student's Subject Permissions
 
